@@ -7,6 +7,7 @@
 let simulationData = null;
 let retirementData = null; // 退職後シミュレーションデータ
 let montecarloData = null; // モンテカルロシミュレーションデータ
+let montecarloAdvancedData = null; // 本気モンテカルロシミュレーションデータ
 let currentAge = 25;
 let isDarkMode = false;
 let currentScenarioResults = null; // 現在のシナリオ比較結果
@@ -77,6 +78,12 @@ function setupEventListeners() {
     const montecarloBtn = document.getElementById('runMontecarloBtn');
     if (montecarloBtn) {
         montecarloBtn.addEventListener('click', runMontecarloSimulation);
+    }
+
+    // 本気モンテカルロ実行ボタン
+    const montecarloAdvancedBtn = document.getElementById('runMontecarloAdvancedBtn');
+    if (montecarloAdvancedBtn) {
+        montecarloAdvancedBtn.addEventListener('click', runMontecarloAdvancedSimulation);
     }
 }
 
@@ -371,6 +378,68 @@ function renderMontecarloView() {
     // グラフを描画
     renderMontecarloHistogram(montecarloData.distribution);
     renderMontecarloPercentileChart(montecarloData.all_results, summary.percentiles);
+}
+
+// ========== 本気モンテカルロシミュレーション実行 ==========
+async function runMontecarloAdvancedSimulation() {
+    const iterations = parseInt(document.getElementById('montecarloAdvancedIterations').value);
+    const btn = document.getElementById('runMontecarloAdvancedBtn');
+
+    btn.disabled = true;
+    btn.textContent = `⏳ 本気計算中... (${iterations}回実行)`;
+    showLoading(true);
+
+    try {
+        const result = await eel.run_monte_carlo_advanced_simulation(iterations)();
+
+        if (result.success) {
+            montecarloAdvancedData = result.data;
+            console.log('本気モンテカルロシミュレーション成功:', montecarloAdvancedData);
+
+            // 結果を表示
+            renderMontecarloAdvancedView();
+
+            btn.disabled = false;
+            btn.textContent = '🚀 本気モンテカルロ計算を開始';
+            showLoading(false);
+        } else {
+            console.error('本気モンテカルロシミュレーションエラー:', result.error);
+            alert('本気モンテカルロシミュレーションに失敗しました: ' + result.error);
+            btn.disabled = false;
+            btn.textContent = '🚀 本気モンテカルロ計算を開始';
+            showLoading(false);
+        }
+    } catch (error) {
+        console.error('通信エラー:', error);
+        alert('サーバーとの通信に失敗しました');
+        btn.disabled = false;
+        btn.textContent = '🚀 本気モンテカルロ計算を開始';
+        showLoading(false);
+    }
+}
+
+function renderMontecarloAdvancedView() {
+    if (!montecarloAdvancedData) return;
+
+    const summary = montecarloAdvancedData.summary;
+
+    // 結果エリアを表示
+    document.getElementById('montecarloAdvancedResults').style.display = 'block';
+
+    // サマリーカード更新
+    document.getElementById('montecarloAdvancedMedian').textContent = formatCurrency(summary.median);
+    document.getElementById('montecarloAdvancedMean').textContent = formatCurrency(summary.mean);
+    document.getElementById('montecarloAdvanced90th').textContent = formatCurrency(summary.percentiles['90th']);
+    document.getElementById('montecarloAdvanced10th').textContent = formatCurrency(summary.percentiles['10th']);
+
+    // 確率表示
+    document.getElementById('montecarloAdvanced50mProb').textContent = summary.target_probabilities['50m'].toFixed(1) + '%';
+    document.getElementById('montecarloAdvanced70mProb').textContent = summary.target_probabilities['70m'].toFixed(1) + '%';
+    document.getElementById('montecarloAdvanced100mProb').textContent = summary.target_probabilities['100m'].toFixed(1) + '%';
+
+    // グラフを描画
+    renderMontecarloAdvancedHistogram(montecarloAdvancedData.distribution);
+    renderMontecarloAdvancedPercentileChart(summary.yearly_progression);
 }
 
 // ========== ダッシュボード更新 ==========

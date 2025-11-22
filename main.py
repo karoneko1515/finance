@@ -380,6 +380,31 @@ def run_monte_carlo_simulation(num_simulations=1000):
 
 
 @eel.expose
+def run_monte_carlo_advanced_simulation(num_simulations=1000):
+    """
+    本格的なモンテカルロシミュレーションを実行
+    年ごとに異なるリターンを適用してsequence-of-returnsリスクを考慮
+
+    Args:
+        num_simulations: シミュレーション回数
+
+    Returns:
+        dict: 計算結果
+    """
+    try:
+        result = calculator.run_monte_carlo_advanced(num_simulations=num_simulations)
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
 def calculate_scenario_comparison(scenarios):
     """
     複数シナリオを比較計算

@@ -1215,4 +1215,159 @@ function renderMontecarloPercentileChart(allResults, percentiles) {
     Plotly.newPlot('montecarloPercentileChart', traces, layout, config);
 }
 
+// ========== 本気モンテカルロシミュレーション ==========
+function renderMontecarloAdvancedHistogram(distribution) {
+    const trace = {
+        x: distribution,
+        type: 'histogram',
+        nbinsx: 50,
+        marker: {
+            color: '#f59e0b',
+            line: {
+                color: '#92400e',
+                width: 1
+            }
+        },
+        hovertemplate: '資産額: %{x:,.0f}円<br>件数: %{y}<extra></extra>'
+    };
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: {
+            title: '最終資産額 (円)',
+            tickformat: ',.0f',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        yaxis: {
+            title: 'シミュレーション回数',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        bargap: 0.05,
+        margin: { t: 30, r: 30, b: 60, l: 80 }
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false
+    };
+
+    Plotly.newPlot('montecarloAdvancedHistogram', [trace], layout, config);
+}
+
+function renderMontecarloAdvancedPercentileChart(yearlyProgression) {
+    if (!yearlyProgression || Object.keys(yearlyProgression).length === 0) {
+        console.error('年次推移データが見つかりません');
+        return;
+    }
+
+    // 年齢の配列を生成（25歳から65歳まで）
+    const numYears = yearlyProgression[10].length;
+    const ages = Array.from({ length: numYears }, (_, i) => 25 + i);
+
+    // 各パーセンタイルのトレースを作成
+    const traces = [
+        {
+            x: ages,
+            y: yearlyProgression[90],
+            type: 'scatter',
+            mode: 'lines',
+            name: '最良ケース (90%)',
+            line: {
+                color: '#10b981',
+                width: 3
+            },
+            fill: 'tonexty',
+            fillcolor: 'rgba(16, 185, 129, 0.1)',
+            hovertemplate: '%{x}歳: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: yearlyProgression[75],
+            type: 'scatter',
+            mode: 'lines',
+            name: '良好ケース (75%)',
+            line: {
+                color: '#6ee7b7',
+                width: 2
+            },
+            fill: 'tonexty',
+            fillcolor: 'rgba(110, 231, 183, 0.1)',
+            hovertemplate: '%{x}歳: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: yearlyProgression[50],
+            type: 'scatter',
+            mode: 'lines',
+            name: '中央値 (50%)',
+            line: {
+                color: '#3b82f6',
+                width: 4
+            },
+            hovertemplate: '%{x}歳: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: yearlyProgression[25],
+            type: 'scatter',
+            mode: 'lines',
+            name: '厳しいケース (25%)',
+            line: {
+                color: '#fb923c',
+                width: 2
+            },
+            fill: 'tonexty',
+            fillcolor: 'rgba(251, 146, 60, 0.1)',
+            hovertemplate: '%{x}歳: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: yearlyProgression[10],
+            type: 'scatter',
+            mode: 'lines',
+            name: '最悪ケース (10%)',
+            line: {
+                color: '#ef4444',
+                width: 3
+            },
+            fill: 'tonexty',
+            fillcolor: 'rgba(239, 68, 68, 0.1)',
+            hovertemplate: '%{x}歳: %{y:,.0f}円<extra></extra>'
+        }
+    ];
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: {
+            title: '年齢',
+            dtick: 5,
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        yaxis: {
+            title: '資産額 (円)',
+            tickformat: ',.0f',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        hovermode: 'x unified',
+        legend: {
+            orientation: 'h',
+            y: -0.2,
+            x: 0.5,
+            xanchor: 'center'
+        },
+        margin: { t: 30, r: 30, b: 100, l: 80 }
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false
+    };
+
+    Plotly.newPlot('montecarloAdvancedPercentileChart', traces, layout, config);
+}
+
 console.log('charts.js ロード完了');

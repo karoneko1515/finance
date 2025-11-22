@@ -1098,11 +1098,11 @@ class LifePlanCalculator:
             # 年間収入
             annual_pension = (monthly_pension + spouse_pension) * 12
 
-            # 配当収入（税引後：約80%）
+            # 配当収入（税引後：79.685%）
             annual_dividend = (
                 assets["company_stock_balance"] * dividend_yield +
                 assets["taxable_account_balance"] * taxable_dividend_yield
-            ) * 0.8  # 20.315%の税金を引く
+            ) * 0.79685  # 20.315%の税金を引く
 
             total_income = annual_pension + annual_dividend
 
@@ -1327,6 +1327,416 @@ class LifePlanCalculator:
             "all_results": all_results,
             "distribution": final_assets_list
         }
+
+    def run_monte_carlo_advanced(self, num_simulations=1000, progress_callback=None):
+        """
+        本格的なモンテカルロシミュレーション
+        年ごとに異なるリターンを適用してsequence-of-returnsリスクを考慮
+
+        Args:
+            num_simulations: シミュレーション回数（デフォルト1000回）
+            progress_callback: 進捗コールバック関数
+
+        Returns:
+            dict: 詳細なモンテカルロシミュレーション結果
+        """
+        # 基本設定
+        base_return = self.investment_settings["nisa"]["expected_return"]
+        return_std = 0.15  # 標準偏差15%
+
+        all_results = []
+
+        for sim_idx in range(num_simulations):
+            # 年ごとのランダムリターンを生成（40年分）
+            annual_returns = []
+            num_years = 65 - self.basic_info["start_age"] + 1
+
+            for year in range(num_years):
+                # 正規分布からランダムサンプリング
+                return_rate = random.gauss(base_return, return_std)
+                # 極端な値を制限（-40% 〜 +60%）
+                return_rate = max(-0.40, min(0.60, return_rate))
+                annual_returns.append(return_rate)
+
+            # このシミュレーションの詳細データを実行
+            yearly_data = self._simulate_with_variable_returns(annual_returns)
+
+            # 最終資産を記録
+            final_assets = yearly_data[-1]["assets_end"] if yearly_data else 0
+
+            all_results.append({
+                "simulation_id": sim_idx + 1,
+                "final_assets": final_assets,
+                "returns": annual_returns,
+                "yearly_data": yearly_data
+            })
+
+            # 進捗コールバック
+            if progress_callback and (sim_idx + 1) % 50 == 0:
+                progress_callback(sim_idx + 1, num_simulations)
+
+        # 統計分析
+        final_assets_list = [r["final_assets"] for r in all_results]
+        final_assets_list.sort()
+
+        # パーセンタイル計算
+        percentile_10 = final_assets_list[int(num_simulations * 0.10)]
+        percentile_25 = final_assets_list[int(num_simulations * 0.25)]
+        percentile_50 = final_assets_list[int(num_simulations * 0.50)]
+        percentile_75 = final_assets_list[int(num_simulations * 0.75)]
+        percentile_90 = final_assets_list[int(num_simulations * 0.90)]
+
+        # 目標達成確率
+        target_50m = sum(1 for assets in final_assets_list if assets >= 50000000) / num_simulations * 100
+        target_70m = sum(1 for assets in final_assets_list if assets >= 70000000) / num_simulations * 100
+        target_100m = sum(1 for assets in final_assets_list if assets >= 100000000) / num_simulations * 100
+
+        # パーセンタイルごとの年次推移を計算
+        percentile_yearly_progression = self._calculate_percentile_progression(
+            all_results, [10, 25, 50, 75, 90]
+        )
+
+        summary = {
+            "num_simulations": num_simulations,
+            "mean": sum(final_assets_list) / num_simulations,
+            "median": percentile_50,
+            "min": min(final_assets_list),
+            "max": max(final_assets_list),
+            "std": np.std(final_assets_list),
+            "percentiles": {
+                "10th": percentile_10,
+                "25th": percentile_25,
+                "50th": percentile_50,
+                "75th": percentile_75,
+                "90th": percentile_90
+            },
+            "target_probabilities": {
+                "50m": target_50m,
+                "70m": target_70m,
+                "100m": target_100m
+            },
+            "yearly_progression": percentile_yearly_progression
+        }
+
+        return {
+            "summary": summary,
+            "all_results": all_results,
+            "distribution": final_assets_list
+        }
+
+    def _simulate_with_variable_returns(self, annual_returns):
+        """
+        年ごとに異なるリターンを適用してシミュレーションを実行
+
+        Args:
+            annual_returns: 年ごとのリターンのリスト
+
+        Returns:
+            list: 年次データのリスト
+        """
+        start_age = self.basic_info["start_age"]
+        end_age = self.basic_info["end_age"]
+
+        yearly_summary = []
+
+        # 初期資産
+        assets = {
+            "nisa_tsumitate_balance": 0,
+            "nisa_growth_balance": 0,
+            "company_stock_balance": 0,
+            "company_stock_shares": 0,
+            "education_fund_balance": 0,
+            "marriage_fund_balance": 0,
+            "taxable_account_balance": 0,
+            "cash_balance": 0,
+            "total": 0
+        }
+
+        nisa_tsumitate_total_contribution = 0
+        nisa_growth_total_contribution = 0
+
+        # 自社株情報
+        company_stock_settings = self.investment_settings["company_stock"]
+        stock_price = company_stock_settings["initial_price"]
+        stock_growth_rate = company_stock_settings["price_growth_rate"]
+        dividend_yield = company_stock_settings["dividend_yield"]
+        incentive_rate = company_stock_settings["incentive_rate"]
+
+        # 年齢ごとにループ
+        for age in range(start_age, end_age + 1):
+            year_index = age - start_age
+            year_return = annual_returns[year_index] if year_index < len(annual_returns) else annual_returns[-1]
+            monthly_return = year_return / 12
+
+            year_start_assets = assets.copy()
+            yearly_income = 0
+            yearly_expenses = 0
+            yearly_investment = 0
+            yearly_cashflow = 0
+
+            # 各月をシミュレート
+            for month in range(1, 13):
+                month_data = self.calculate_monthly_data(age, month, assets)
+
+                # 年間集計
+                yearly_income += month_data["income"]["total"]
+                yearly_expenses += month_data["expenses"]["total"]
+                yearly_investment += month_data["investment"]["total"]
+                yearly_cashflow += month_data["cashflow"]["monthly"]
+
+                # 資産更新（変動リターンを適用）
+                # NISA積立
+                nisa_contribution = month_data["investment"].get("nisa_tsumitate", 0)
+                if nisa_contribution > 0:
+                    if nisa_tsumitate_total_contribution < self.investment_settings["nisa"]["tsumitate_limit"]:
+                        contribution = min(nisa_contribution,
+                                         self.investment_settings["nisa"]["tsumitate_limit"] - nisa_tsumitate_total_contribution)
+                        nisa_tsumitate_total_contribution += contribution
+                        assets["nisa_tsumitate_balance"] = (assets["nisa_tsumitate_balance"] + contribution) * (1 + monthly_return)
+                    else:
+                        # つみたてNISA満額後は特定口座に投資
+                        assets["taxable_account_balance"] = (assets["taxable_account_balance"] + nisa_contribution) * (1 + monthly_return)
+
+                # NISA成長投資枠（ボーナス月のみ）
+                nisa_growth_contribution = month_data["investment"].get("nisa_growth", 0)
+                if nisa_growth_contribution > 0:
+                    if nisa_growth_total_contribution < self.investment_settings["nisa"]["growth_limit"]:
+                        contribution = min(nisa_growth_contribution,
+                                         self.investment_settings["nisa"]["growth_limit"] - nisa_growth_total_contribution)
+                        nisa_growth_total_contribution += contribution
+                        assets["nisa_growth_balance"] = (assets["nisa_growth_balance"] + contribution) * (1 + monthly_return)
+                    else:
+                        # NISA満額後は特定口座に投資
+                        assets["taxable_account_balance"] = (assets["taxable_account_balance"] + nisa_growth_contribution) * (1 + monthly_return)
+
+                # 自社株購入
+                company_stock_contribution = month_data["investment"].get("company_stock", 0)
+                if company_stock_contribution > 0:
+                    actual_purchase = company_stock_contribution * (1 + incentive_rate)
+                    shares_purchased = actual_purchase / stock_price
+                    assets["company_stock_shares"] += shares_purchased
+
+                # 教育資金積立
+                education_contribution = month_data["investment"].get("education_fund", 0)
+                if education_contribution > 0:
+                    assets["education_fund_balance"] = (assets["education_fund_balance"] + education_contribution) * (1 + monthly_return)
+
+                # 結婚資金積立
+                marriage_contribution = month_data["investment"].get("marriage_fund", 0)
+                if marriage_contribution > 0:
+                    assets["marriage_fund_balance"] = (assets["marriage_fund_balance"] + marriage_contribution) * (1 + monthly_return)
+
+                # 子供準備資金積立 - 現金として積立
+                child_prep_contribution = month_data["investment"].get("child_preparation_fund", 0)
+                if child_prep_contribution > 0:
+                    assets["cash_balance"] += child_prep_contribution
+
+                # 緊急予備費積立 - 現金として積立
+                emergency_contribution = month_data["investment"].get("emergency_fund", 0)
+                if emergency_contribution > 0:
+                    assets["cash_balance"] += emergency_contribution
+
+                # 高配当株投資（特定口座）
+                high_dividend_contribution = month_data["investment"].get("high_dividend_stocks", 0)
+                if high_dividend_contribution > 0:
+                    assets["taxable_account_balance"] = (assets["taxable_account_balance"] + high_dividend_contribution) * (1 + monthly_return)
+
+                # 現金残高更新
+                assets["cash_balance"] += month_data["cashflow"]["monthly"]
+
+            # 年末処理（教育費、ライフイベントなど）
+            # 教育費の計算
+            education_costs = self.loader.get_education_costs()
+            annual_education_cost = 0
+
+            # 第一子の教育費
+            first_child_age = age - self.basic_info["first_child_birth_age"]
+            if 0 <= first_child_age <= 22:
+                if 0 <= first_child_age <= 5:
+                    annual_education_cost += education_costs.get("age_0_5", {}).get("childcare", 0)
+                elif 6 <= first_child_age <= 11:
+                    annual_education_cost += education_costs.get("age_6_11", {}).get("school_fees", 0)
+                    annual_education_cost += education_costs.get("age_6_11", {}).get("lessons", 0)
+                elif 12 <= first_child_age <= 14:
+                    annual_education_cost += education_costs.get("age_12_14", {}).get("school_fees", 0)
+                    annual_education_cost += education_costs.get("age_12_14", {}).get("cram_school", 0)
+                elif 15 <= first_child_age <= 17:
+                    annual_education_cost += education_costs.get("age_15_17", {}).get("school_fees", 0)
+                    annual_education_cost += education_costs.get("age_15_17", {}).get("cram_school", 0)
+                    annual_education_cost -= self.loader.get_high_school_subsidy()
+                elif first_child_age == 18:
+                    annual_education_cost += education_costs.get("age_18", {}).get("exam_fees", 0)
+
+            # 第二子の教育費
+            second_child_age = age - self.basic_info["second_child_birth_age"]
+            if 0 <= second_child_age <= 22:
+                if 0 <= second_child_age <= 5:
+                    annual_education_cost += education_costs.get("age_0_5", {}).get("childcare", 0)
+                elif 6 <= second_child_age <= 11:
+                    annual_education_cost += education_costs.get("age_6_11", {}).get("school_fees", 0)
+                    annual_education_cost += education_costs.get("age_6_11", {}).get("lessons", 0)
+                elif 12 <= second_child_age <= 14:
+                    annual_education_cost += education_costs.get("age_12_14", {}).get("school_fees", 0)
+                    annual_education_cost += education_costs.get("age_12_14", {}).get("cram_school", 0)
+                elif 15 <= second_child_age <= 17:
+                    annual_education_cost += education_costs.get("age_15_17", {}).get("school_fees", 0)
+                    annual_education_cost += education_costs.get("age_15_17", {}).get("cram_school", 0)
+                    annual_education_cost -= self.loader.get_high_school_subsidy()
+                elif second_child_age == 18:
+                    annual_education_cost += education_costs.get("age_18", {}).get("exam_fees", 0)
+
+            # 教育費を現金から支払い（インフレ調整）
+            if annual_education_cost > 0:
+                inflation_rate = self.inflation_settings.get("education_rate", 0)
+                adjusted_cost = self.apply_inflation(annual_education_cost, age - start_age, inflation_rate)
+                assets["cash_balance"] -= adjusted_cost
+
+            # 自社株の株価更新
+            stock_price = stock_price * (1 + stock_growth_rate)
+            assets["company_stock_balance"] = assets["company_stock_shares"] * stock_price
+
+            # 配当金（年末に一括計算）
+            if assets["company_stock_balance"] > 0:
+                annual_dividend = assets["company_stock_balance"] * dividend_yield
+
+                # 配当金の再投資判定
+                if age <= 45:
+                    reinvest_rate = self.investment_settings["dividend_reinvestment"]["age_0_45"]
+                elif age <= 55:
+                    reinvest_rate = self.investment_settings["dividend_reinvestment"]["age_46_55"]
+                elif age <= 64:
+                    reinvest_rate = self.investment_settings["dividend_reinvestment"]["age_56_64"]
+                else:
+                    reinvest_rate = self.investment_settings["dividend_reinvestment"]["age_65_99"]
+
+                reinvest_amount = annual_dividend * reinvest_rate
+                cash_dividend = annual_dividend - reinvest_amount
+
+                # 再投資（自社株追加購入）
+                if reinvest_amount > 0:
+                    shares_purchased = reinvest_amount / stock_price
+                    assets["company_stock_shares"] += shares_purchased
+                    assets["company_stock_balance"] = assets["company_stock_shares"] * stock_price
+
+                # 現金配当
+                assets["cash_balance"] += cash_dividend
+
+            # ライフイベント支出（結婚、住宅購入など）
+            if age == self.life_events["marriage"]["age"]:
+                marriage_cost = self.life_events["marriage"]["cost"]
+                if assets["marriage_fund_balance"] >= marriage_cost:
+                    assets["marriage_fund_balance"] -= marriage_cost
+                else:
+                    shortfall = marriage_cost - assets["marriage_fund_balance"]
+                    assets["marriage_fund_balance"] = 0
+                    assets["cash_balance"] -= shortfall
+
+            if age == self.life_events["home_purchase"]["age"]:
+                down_payment = self.life_events["home_purchase"]["down_payment"]
+                closing_costs = self.life_events["home_purchase"]["closing_costs"]
+                total_upfront = down_payment + closing_costs
+
+                if assets["cash_balance"] >= total_upfront:
+                    assets["cash_balance"] -= total_upfront
+                else:
+                    shortfall = total_upfront - assets["cash_balance"]
+                    assets["cash_balance"] = 0
+                    if assets["education_fund_balance"] >= shortfall:
+                        assets["education_fund_balance"] -= shortfall
+                    else:
+                        remaining = shortfall - assets["education_fund_balance"]
+                        assets["education_fund_balance"] = 0
+                        if assets["nisa_growth_balance"] >= remaining:
+                            assets["nisa_growth_balance"] -= remaining
+                        else:
+                            assets["nisa_growth_balance"] = 0
+
+            # 大学費用支払い
+            first_child_age = age - self.basic_info["first_child_birth_age"]
+            if 19 <= first_child_age <= 22:
+                annual_college_cost = education_costs.get("age_19_22", {}).get("tuition", 0)
+                inflation_rate = self.inflation_settings.get("education_rate", 0)
+                adjusted_cost = self.apply_inflation(annual_college_cost, age - start_age, inflation_rate)
+
+                if assets["education_fund_balance"] >= adjusted_cost:
+                    assets["education_fund_balance"] -= adjusted_cost
+                else:
+                    shortfall = adjusted_cost - assets["education_fund_balance"]
+                    assets["education_fund_balance"] = 0
+                    assets["cash_balance"] -= shortfall
+
+            second_child_age = age - self.basic_info["second_child_birth_age"]
+            if 19 <= second_child_age <= 22:
+                annual_college_cost = education_costs.get("age_19_22", {}).get("tuition", 0)
+                inflation_rate = self.inflation_settings.get("education_rate", 0)
+                adjusted_cost = self.apply_inflation(annual_college_cost, age - start_age, inflation_rate)
+
+                if assets["education_fund_balance"] >= adjusted_cost:
+                    assets["education_fund_balance"] -= adjusted_cost
+                else:
+                    shortfall = adjusted_cost - assets["education_fund_balance"]
+                    assets["education_fund_balance"] = 0
+                    assets["cash_balance"] -= shortfall
+
+            # 総資産計算
+            assets["total"] = (
+                assets["nisa_tsumitate_balance"] +
+                assets["nisa_growth_balance"] +
+                assets["company_stock_balance"] +
+                assets["education_fund_balance"] +
+                assets["marriage_fund_balance"] +
+                assets["taxable_account_balance"] +
+                assets["cash_balance"]
+            )
+
+            # 年次サマリーを記録
+            yearly_summary.append({
+                "age": age,
+                "year": 2025 + (age - start_age),
+                "income_total": yearly_income,
+                "expenses_total": yearly_expenses,
+                "investment_total": yearly_investment,
+                "cashflow_annual": yearly_cashflow,
+                "assets_start": year_start_assets["total"],
+                "assets_end": assets["total"],
+                "return_rate": year_return
+            })
+
+        return yearly_summary
+
+    def _calculate_percentile_progression(self, all_results, percentiles):
+        """
+        パーセンタイルごとの年次推移を計算
+
+        Args:
+            all_results: 全シミュレーション結果
+            percentiles: 計算するパーセンタイルのリスト（例: [10, 25, 50, 75, 90]）
+
+        Returns:
+            dict: パーセンタイルごとの年次推移
+        """
+        if not all_results or not all_results[0]["yearly_data"]:
+            return {}
+
+        num_years = len(all_results[0]["yearly_data"])
+        progression = {p: [] for p in percentiles}
+
+        # 各年について全シミュレーションの資産値を収集
+        for year_idx in range(num_years):
+            year_assets = []
+            for result in all_results:
+                if year_idx < len(result["yearly_data"]):
+                    year_assets.append(result["yearly_data"][year_idx]["assets_end"])
+
+            year_assets.sort()
+
+            # 各パーセンタイルの値を計算
+            for p in percentiles:
+                idx = int(len(year_assets) * p / 100)
+                idx = min(idx, len(year_assets) - 1)
+                progression[p].append(year_assets[idx])
+
+        return progression
 
     def export_to_dict(self):
         """
