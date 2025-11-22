@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>40年間ライフプラン・資産形成シミュレーター (25-65歳)</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="/eel.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- ヘッダー -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="app-title">40年間ライフプラン・資産形成シミュレーター (25-65歳)</h1>
+                <div class="header-controls">
+                    <button id="darkModeToggle" class="btn btn-icon">
+                        <span class="icon-dark">🌙</span>
+                        <span class="icon-light" style="display: none;">☀️</span>
+                    </button>
+                    <button id="settingsBtn" class="btn btn-secondary">設定</button>
+                    <button id="exportBtn" class="btn btn-secondary">CSVエクスポート</button>
+                </div>
+            </div>
+            <div class="disclaimer">
+                ⚠️ このシミュレーションは2025年現在の税制・社会保障制度を前提としています。将来的な制度変更により実際の結果は異なる可能性があります。
+            </div>
+        </header>
+
+        <!-- ナビゲーション -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-view="dashboard">ダッシュボード</button>
+            <button class="nav-tab" data-view="yearly-detail">年齢別詳細</button>
+            <button class="nav-tab" data-view="cashflow">キャッシュフロー</button>
+            <button class="nav-tab" data-view="timeline">タイムライン</button>
+            <button class="nav-tab" data-view="education">教育費</button>
+            <button class="nav-tab" data-view="dividend">配当金</button>
+            <button class="nav-tab" data-view="scenario">シナリオ比較</button>
+        </nav>
+
+        <!-- メインコンテンツ -->
+        <main class="main-content">
+            <!-- ローディング表示 -->
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>シミュレーションを計算中...</p>
+            </div>
+
+            <!-- ダッシュボードビュー -->
+            <section id="dashboard-view" class="view active">
+                <div class="summary-cards">
+                    <div class="card">
+                        <h3>最終資産額 (65歳時)</h3>
+                        <p class="amount" id="finalAssets">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>総投資額</h3>
+                        <p class="amount" id="totalInvestment">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>累積キャッシュフロー</h3>
+                        <p class="amount" id="totalCashflow">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>現金残高</h3>
+                        <p class="amount" id="cashBalance">-</p>
+                        <p class="warning" id="cashWarning" style="display: none;">
+                            ⚠️ 緊急予備資金を下回っています
+                        </p>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <h2>総資産推移 (25歳〜65歳)</h2>
+                    <div id="assetsChart"></div>
+                </div>
+
+                <div class="chart-container">
+                    <h2>資産内訳推移</h2>
+                    <div id="assetsBreakdownChart"></div>
+                </div>
+            </section>
+
+            <!-- 年齢別詳細ビュー -->
+            <section id="yearly-detail-view" class="view">
+                <div class="age-selector-container">
+                    <label for="ageSelector">年齢を選択:</label>
+                    <input type="range" id="ageSelector" min="25" max="65" value="25" step="1">
+                    <span id="ageDisplay" class="age-display">25歳</span>
+                </div>
+
+                <div class="year-summary-cards">
+                    <div class="card">
+                        <h3>年間収入</h3>
+                        <p class="amount" id="yearIncome">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>年間支出</h3>
+                        <p class="amount" id="yearExpenses">-</p>
+                        <p class="sub-amount" id="yearEducationCost">教育費: -</p>
+                    </div>
+                    <div class="card">
+                        <h3>年間投資</h3>
+                        <p class="amount" id="yearInvestment">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>年間収支</h3>
+                        <p class="amount" id="yearCashflow">-</p>
+                    </div>
+                </div>
+
+                <!-- 資産内訳セクション -->
+                <div class="asset-details-section">
+                    <h2>資産詳細（年始 → 年末）</h2>
+                    <div class="asset-comparison-grid">
+                        <div class="chart-container">
+                            <h3>年始の資産内訳</h3>
+                            <div id="assetsStartPieChart"></div>
+                            <p class="total-label">総資産: <span id="assetsStartTotal">-</span></p>
+                        </div>
+                        <div class="chart-container">
+                            <h3>年末の資産内訳</h3>
+                            <div id="assetsEndPieChart"></div>
+                            <p class="total-label">総資産: <span id="assetsEndTotal">-</span></p>
+                        </div>
+                    </div>
+
+                    <!-- 配当金情報 -->
+                    <div class="dividend-info-cards">
+                        <div class="card">
+                            <h3>年間配当金（税引前）</h3>
+                            <p class="amount" id="yearDividendTotal">-</p>
+                        </div>
+                        <div class="card">
+                            <h3>受取配当金</h3>
+                            <p class="amount" id="yearDividendReceived">-</p>
+                        </div>
+                        <div class="card">
+                            <h3>自社株配当</h3>
+                            <p class="amount" id="yearCompanyDividend">-</p>
+                        </div>
+                        <div class="card">
+                            <h3>特定口座配当</h3>
+                            <p class="amount" id="yearTaxableDividend">-</p>
+                        </div>
+                    </div>
+
+                    <!-- イレギュラー支出 -->
+                    <div id="irregularExpensesSection" class="irregular-expenses-section" style="display: none;">
+                        <h3>⚠️ この年の特殊支出</h3>
+                        <div id="irregularExpensesList" class="irregular-expenses-list"></div>
+                    </div>
+                </div>
+
+                <div class="detail-grid">
+                    <div class="chart-container">
+                        <h3>月次収入内訳 (12ヶ月平均)</h3>
+                        <div id="monthlyIncomeChart"></div>
+                    </div>
+
+                    <div class="chart-container">
+                        <h3>月次支出内訳 (12ヶ月平均)</h3>
+                        <div id="monthlyExpensesChart"></div>
+                    </div>
+
+                    <div class="chart-container">
+                        <h3>月次投資内訳 (12ヶ月平均)</h3>
+                        <div id="monthlyInvestmentChart"></div>
+                    </div>
+
+                    <div class="chart-container">
+                        <h3>月別キャッシュフロー</h3>
+                        <div id="monthlyCashflowChart"></div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <h2>12ヶ月詳細データ</h2>
+                    <div id="monthlyDetailTable"></div>
+                </div>
+            </section>
+
+            <!-- キャッシュフロービュー -->
+            <section id="cashflow-view" class="view">
+                <div class="chart-container">
+                    <h2>年間キャッシュフロー推移</h2>
+                    <div id="cashflowChart"></div>
+                </div>
+
+                <div class="chart-container">
+                    <h2>累積キャッシュフロー</h2>
+                    <div id="cumulativeCashflowChart"></div>
+                </div>
+            </section>
+
+            <!-- タイムラインビュー -->
+            <section id="timeline-view" class="view">
+                <div class="chart-container">
+                    <h2>ライフイベントタイムライン</h2>
+                    <div id="timelineChart"></div>
+                </div>
+
+                <div class="events-list">
+                    <h3>主要イベント一覧</h3>
+                    <div id="eventsList"></div>
+                </div>
+            </section>
+
+            <!-- 教育費ビュー -->
+            <section id="education-view" class="view">
+                <div class="chart-container">
+                    <h2>子供別教育費累計 (0歳〜22歳)</h2>
+                    <div id="educationCostChart"></div>
+                </div>
+
+                <div class="detail-grid">
+                    <div class="card">
+                        <h3>第一子 総教育費</h3>
+                        <p class="amount" id="child1Total">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>第二子 総教育費</h3>
+                        <p class="amount" id="child2Total">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>児童手当総額 (2人分)</h3>
+                        <p class="amount" id="childAllowanceTotal">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>実質教育費負担</h3>
+                        <p class="amount" id="netEducationCost">-</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 配当金ビュー -->
+            <section id="dividend-view" class="view">
+                <div class="summary-cards">
+                    <div class="card">
+                        <h3>65歳時点 配当資産総額</h3>
+                        <p class="amount" id="dividendAssets">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>年間配当金 (税引後)</h3>
+                        <p class="amount" id="annualDividend">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>月間配当金</h3>
+                        <p class="amount" id="monthlyDividend">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>配当利回り</h3>
+                        <p class="amount" id="dividendYield">-</p>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <h2>配当金推移</h2>
+                    <div id="dividendChart"></div>
+                </div>
+            </section>
+
+            <!-- シナリオ比較ビュー -->
+            <section id="scenario-view" class="view">
+                <div class="scenario-controls">
+                    <h3>比較シナリオ設定</h3>
+                    <div class="scenario-options">
+                        <label>
+                            シナリオ名:
+                            <input type="text" id="scenarioName" placeholder="例: 楽観的ケース" class="settings-input" style="min-width: 200px;">
+                        </label>
+                        <label>
+                            投資リターン:
+                            <select id="scenarioReturn">
+                                <option value="0.03">3% (保守的)</option>
+                                <option value="0.05" selected>5% (標準)</option>
+                                <option value="0.07">7% (楽観的)</option>
+                            </select>
+                        </label>
+                        <label>
+                            配偶者収入:
+                            <select id="scenarioSpouse">
+                                <option value="あり" selected>あり (標準)</option>
+                                <option value="なし">なし</option>
+                                <option value="増額">増額</option>
+                            </select>
+                        </label>
+                        <label>
+                            昇給率:
+                            <select id="scenarioSalary">
+                                <option value="標準" selected>標準</option>
+                                <option value="+10%">+10%</option>
+                                <option value="-10%">-10%</option>
+                            </select>
+                        </label>
+                        <button id="runScenarioBtn" class="btn btn-primary">シナリオ比較実行</button>
+                        <button id="saveScenarioBtn" class="btn btn-secondary" style="display: none;">シナリオを保存</button>
+                    </div>
+                </div>
+
+                <!-- 保存済みシナリオリスト -->
+                <div id="savedScenariosSection" class="saved-scenarios-section" style="display: none;">
+                    <h3>保存済みシナリオ</h3>
+                    <div id="savedScenariosList" class="saved-scenarios-list"></div>
+                </div>
+
+                <!-- シナリオ比較テーブル -->
+                <div id="scenarioComparisonTable" class="scenario-comparison-table" style="display: none;">
+                    <h3>シナリオ比較サマリー</h3>
+                    <div id="comparisonTableContent"></div>
+                </div>
+
+                <div class="chart-container">
+                    <h2>シナリオ別資産推移比較</h2>
+                    <div id="scenarioComparisonChart"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 設定モーダル -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>シミュレーション設定</h2>
+                <button class="modal-close" onclick="closeSettingsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>プラン設定</h3>
+                    <p class="settings-info">
+                        設定を変更して「再計算」をクリックすると、新しい設定でシミュレーションが実行されます。
+                    </p>
+                    <div class="settings-grid">
+                        <div class="settings-item">
+                            <label>開始年齢</label>
+                            <input type="number" id="settingStartAge" min="20" max="30" class="settings-input">
+                        </div>
+                        <div class="settings-item">
+                            <label>終了年齢</label>
+                            <input type="number" id="settingEndAge" min="60" max="70" class="settings-input">
+                        </div>
+                        <div class="settings-item">
+                            <label>結婚年齢</label>
+                            <input type="number" id="settingMarriageAge" min="20" max="40" class="settings-input">
+                        </div>
+                        <div class="settings-item">
+                            <label>第一子誕生</label>
+                            <input type="number" id="settingFirstChild" min="25" max="45" class="settings-input">
+                        </div>
+                        <div class="settings-item">
+                            <label>第二子誕生</label>
+                            <input type="number" id="settingSecondChild" min="25" max="45" class="settings-input">
+                        </div>
+                        <div class="settings-item">
+                            <label>住宅購入年齢</label>
+                            <input type="number" id="settingHomePurchase" min="30" max="60" class="settings-input">
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem;">配偶者収入</h3>
+                    <div class="settings-grid">
+                        <div class="settings-item">
+                            <label>28-47歳 (月額・円)</label>
+                            <input type="number" id="settingSpouseIncome1" min="0" max="500000" step="10000" class="settings-input">
+                        </div>
+                        <div class="settings-item">
+                            <label>48-64歳 (月額・円)</label>
+                            <input type="number" id="settingSpouseIncome2" min="0" max="500000" step="10000" class="settings-input">
+                        </div>
+                        <div class="settings-item">
+                            <label>65歳以降 (月額・円)</label>
+                            <input type="number" id="settingSpouseIncome3" min="0" max="500000" step="10000" class="settings-input">
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem;">投資設定</h3>
+                    <div class="settings-grid">
+                        <div class="settings-item">
+                            <label>NISA期待リターン (%)</label>
+                            <input type="number" id="settingNisaReturn" min="0" max="20" step="0.1" class="settings-input">
+                        </div>
+                        <div class="settings-item">
+                            <label>特定口座期待リターン (%)</label>
+                            <input type="number" id="settingTaxableReturn" min="0" max="20" step="0.1" class="settings-input">
+                        </div>
+                        <div class="settings-item">
+                            <label>教育資金期待リターン (%)</label>
+                            <input type="number" id="settingEducationReturn" min="0" max="20" step="0.1" class="settings-input">
+                        </div>
+                        <div class="settings-item">
+                            <label>インフレ率（生活費） (%)</label>
+                            <input type="number" id="settingInflationLiving" min="0" max="10" step="0.1" class="settings-input">
+                        </div>
+                        <div class="settings-item">
+                            <label>インフレ率（教育費） (%)</label>
+                            <input type="number" id="settingInflationEducation" min="0" max="10" step="0.1" class="settings-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeSettingsModal()">閉じる</button>
+                <button class="btn btn-secondary" onclick="resetToDefault()">初期値に戻す</button>
+                <button class="btn btn-primary" onclick="saveAndRecalculate()">再計算</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScriptファイル -->
+    <script src="js/app.js"></script>
+    <script src="js/charts.js"></script>
+</body>
+</html>

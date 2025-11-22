@@ -1,0 +1,319 @@
+{
+  "basic_info": {
+    "start_age": 25,
+    "end_age": 65,
+    "birth_month": 4,
+    "company": "三菱重工",
+    "education": "院卒",
+    "marriage_age": 28,
+    "first_child_birth_age": 30,
+    "second_child_birth_age": 32,
+    "pet_start_age": 30
+  },
+  "life_events": {
+    "marriage": {
+      "age": 28,
+      "cost": 1500000,
+      "description": "結婚式・新婚旅行費用"
+    },
+    "home_purchase": {
+      "age": 50,
+      "property_price": 55000000,
+      "down_payment": 15000000,
+      "loan_amount": 40000000,
+      "interest_rate": 0.015,
+      "loan_years": 30,
+      "closing_costs": 3000000,
+      "description": "東京都内マンション購入"
+    }
+  },
+  "income_progression": {
+    "25": {"base_salary": 300000, "bonus_months": 6.5},
+    "30": {"base_salary": 500000, "bonus_months": 6.5},
+    "35": {"base_salary": 560000, "bonus_months": 6.5},
+    "40": {"base_salary": 600000, "bonus_months": 6.5},
+    "45": {"base_salary": 630000, "bonus_months": 6.5},
+    "50": {"base_salary": 800000, "bonus_months": 6.5},
+    "55": {"base_salary": 850000, "bonus_months": 7.0},
+    "60": {"base_salary": 900000, "bonus_months": 7.0},
+    "65": {"base_salary": 0, "bonus_months": 0}
+  },
+  "spouse_income": {
+    "28-47": 80000,
+    "48-64": 100000,
+    "65-99": 0
+  },
+  "pension": {
+    "start_age": 65,
+    "monthly_amount": 180000,
+    "description": "厚生年金（月額18万円、年額216万円）"
+  },
+  "housing_allowance": {
+    "45-49": 90000
+  },
+  "housing_costs": {
+    "25-27": {
+      "rent": 20000,
+      "utilities": 8000
+    },
+    "28-49": {
+      "rent": 60000,
+      "utilities": 15000
+    },
+    "50-65": {
+      "mortgage": 138000,
+      "utilities": 15000
+    }
+  },
+  "phase_definitions": {
+    "phase1": {
+      "ages": "25-27",
+      "name": "独身期",
+      "monthly_expenses": {
+        "food": 45000,
+        "communication": 10000,
+        "transportation": 5000,
+        "daily_goods": 10000,
+        "insurance": 5000,
+        "entertainment": 30000
+      },
+      "monthly_investment": {
+        "nisa_tsumitate": 100000,
+        "company_stock": 21000,
+        "marriage_fund": 80000,
+        "emergency_fund": 20000
+      },
+      "bonus_allocation": {
+        "marriage_fund": 600000,
+        "travel": 300000,
+        "reserve": 500000
+      }
+    },
+    "phase2": {
+      "ages": "28-29",
+      "name": "新婚期",
+      "monthly_expenses": {
+        "food": 70000,
+        "communication": 15000,
+        "insurance": 20000,
+        "daily_goods": 15000,
+        "entertainment": 30000,
+        "spouse_allowance": 20000
+      },
+      "monthly_investment": {
+        "nisa_tsumitate": 100000,
+        "company_stock": 21000,
+        "child_preparation_fund": 100000
+      },
+      "bonus_allocation": {
+        "nisa_growth": 400000,
+        "education_fund": 600000,
+        "travel": 400000,
+        "home_appliances": 300000,
+        "reserve": 600000
+      }
+    },
+    "phase3": {
+      "ages": "30-39",
+      "name": "子育て期(乳幼児〜小学生)",
+      "monthly_expenses": {
+        "food": 100000,
+        "daily_goods_children": 30000,
+        "communication": 20000,
+        "insurance": 30000,
+        "childcare_lessons": 60000,
+        "entertainment": 20000,
+        "pet": 30000,
+        "clothing_medical": 20000
+      },
+      "monthly_investment": {
+        "nisa_tsumitate": 100000,
+        "company_stock": 21000,
+        "education_fund": 60000
+      },
+      "bonus_allocation": {
+        "nisa_growth": 400000,
+        "education_fund": 600000,
+        "living_supplement": 800000,
+        "travel": 400000,
+        "reserve": 400000
+      }
+    },
+    "phase4": {
+      "ages": "40-47",
+      "name": "子育て期(中高生)",
+      "monthly_expenses": {
+        "food": 100000,
+        "daily_goods": 30000,
+        "communication": 20000,
+        "insurance": 30000,
+        "education_cram_school": 100000,
+        "entertainment": 20000,
+        "pet": 30000,
+        "clothing_medical": 20000
+      },
+      "monthly_investment": {
+        "education_fund": 100000,
+        "company_stock": 21000
+      },
+      "bonus_allocation": {
+        "nisa_growth": 300000,
+        "education_fund": 800000,
+        "living_supplement": 1000000,
+        "reserve": 600000
+      }
+    },
+    "phase5": {
+      "ages": "48-55",
+      "name": "大学費用期",
+      "monthly_expenses": {
+        "food": 80000,
+        "basic_living": 350000
+      },
+      "monthly_investment": {
+        "company_stock": 30000,
+        "high_dividend_stocks": 100000
+      },
+      "bonus_allocation": {
+        "high_dividend_stocks": 600000,
+        "reserve": 500000
+      }
+    },
+    "phase6": {
+      "ages": "56-64",
+      "name": "定年前・資産形成最終期",
+      "monthly_expenses": {
+        "food": 80000,
+        "basic_living": 300000,
+        "leisure_travel": 50000
+      },
+      "monthly_investment": {
+        "company_stock": 30000,
+        "high_dividend_stocks": 150000
+      },
+      "bonus_allocation": {
+        "high_dividend_stocks": 1000000,
+        "travel_leisure": 500000,
+        "reserve": 1000000
+      }
+    },
+    "phase7": {
+      "ages": "65-65",
+      "name": "定年退職（無収入）",
+      "monthly_expenses": {
+        "food": 80000,
+        "basic_living": 250000,
+        "leisure_travel": 50000
+      },
+      "monthly_investment": {},
+      "bonus_allocation": {}
+    }
+  },
+  "child_allowance": {
+    "age_0_2": 15000,
+    "age_3_14": 10000,
+    "age_3_14_second_child": 15000
+  },
+  "high_school_subsidy": 118800,
+  "education_costs_per_child": {
+    "age_0_5": {
+      "childcare": 100000
+    },
+    "age_6_11": {
+      "school_fees": 200000,
+      "lessons": 600000
+    },
+    "age_12_14": {
+      "school_fees": 150000,
+      "cram_school": 900000
+    },
+    "age_15_17": {
+      "school_fees": 140000,
+      "cram_school": 600000
+    },
+    "age_18": {
+      "exam_fees": 500000
+    },
+    "age_19_22": {
+      "university_entrance_fee": 300000,
+      "university_annual_tuition": 1300000,
+      "living_expenses_annual": 1140000
+    }
+  },
+  "pet_costs": {
+    "age_0_14": 30000,
+    "age_15": 50000
+  },
+  "investment_settings": {
+    "nisa": {
+      "tsumitate_limit": 12000000,
+      "growth_limit": 6000000,
+      "tsumitate_allocation": {
+        "emaxis_slim_world": 0.50,
+        "emaxis_slim_sp500": 0.30,
+        "emaxis_slim_developed": 0.10,
+        "emaxis_slim_emerging": 0.10
+      },
+      "growth_allocation": {
+        "domestic_dividend_etf": 0.25,
+        "us_dividend_etf": 0.25,
+        "japan_dividend_stocks": 0.25,
+        "us_dividend_growth": 0.20,
+        "company_stock": 0.05
+      },
+      "expected_return": 0.05
+    },
+    "company_stock": {
+      "initial_price": 2000,
+      "price_growth_rate": 0.03,
+      "dividend_yield": 0.03,
+      "incentive_rate": 0.05
+    },
+    "taxable_account": {
+      "expected_return": 0.05,
+      "dividend_yield": 0.04
+    },
+    "education_fund": {
+      "expected_return": 0.015
+    },
+    "dividend_reinvestment": {
+      "age_0_45": 1.0,
+      "age_46_55": 0.5,
+      "age_56_64": 0.3,
+      "age_65_99": 0.0
+    }
+  },
+  "tax_rates": {
+    "takehome_rates": {
+      "0-5500000": 0.77,
+      "5500001-8000000": 0.74,
+      "8000001-10000000": 0.73,
+      "10000001-99999999": 0.69
+    },
+    "social_insurance_rate": 0.145,
+    "income_tax_rates": {
+      "0-5500000": 0.085,
+      "5500001-8000000": 0.115,
+      "8000001-10000000": 0.125,
+      "10000001-99999999": 0.165
+    }
+  },
+  "mortgage_deduction": {
+    "years": 10,
+    "rate": 0.007,
+    "annual_limit": 280000
+  },
+  "inflation_settings": {
+    "enabled": true,
+    "living_expenses_rate": 0.02,
+    "education_rate": 0.01,
+    "housing_rate": 0.0
+  },
+  "emergency_reserve": 3000000,
+  "scenario_settings": {
+    "child_education": ["私立理系", "国公立", "私立文系"],
+    "investment_returns": [0.03, 0.05, 0.07],
+    "spouse_income_options": ["あり", "なし", "増額"],
+    "salary_growth_options": ["標準", "+10%", "-10%"]
+  }
+}
