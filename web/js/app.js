@@ -5,6 +5,8 @@
 
 // グローバル状態
 let simulationData = null;
+let retirementData = null; // 退職後シミュレーションデータ
+let montecarloData = null; // モンテカルロシミュレーションデータ
 let currentAge = 25;
 let isDarkMode = false;
 let currentScenarioResults = null; // 現在のシナリオ比較結果
@@ -70,6 +72,12 @@ function setupEventListeners() {
     if (saveScenarioBtn) {
         saveScenarioBtn.addEventListener('click', saveScenario);
     }
+
+    // モンテカルロ実行ボタン
+    const montecarloBtn = document.getElementById('runMontecarloBtn');
+    if (montecarloBtn) {
+        montecarloBtn.addEventListener('click', runMontecarloSimulation);
+    }
 }
 
 // ========== ビュー切り替え ==========
@@ -103,6 +111,14 @@ function switchView(viewName) {
         // キャッシュフローグラフを描画
         renderCashflowChart();
         renderCumulativeCashflowChart();
+    } else if (viewName === 'retirement') {
+        // 退職後シミュレーションを実行
+        runRetirementSimulation();
+    } else if (viewName === 'montecarlo') {
+        // モンテカルロビューは手動実行（ボタンを押すまで待機）
+        if (montecarloData) {
+            renderMontecarloView();
+        }
     } else if (viewName === 'timeline' && simulationData) {
         // タイムラインを描画
         renderTimelineChart();
@@ -158,6 +174,14 @@ function toggleDarkMode() {
                 renderEducationView();
             } else if (viewId === 'dividend-view') {
                 renderDividendView();
+            } else if (viewId === 'retirement-view') {
+                if (retirementData) {
+                    renderRetirementView();
+                }
+            } else if (viewId === 'montecarlo-view') {
+                if (montecarloData) {
+                    renderMontecarloView();
+                }
             } else if (viewId === 'scenario-view') {
                 if (currentScenarioResults) {
                     renderScenarioComparisonChart(currentScenarioResults.data);
@@ -211,6 +235,142 @@ async function runSimulation() {
         alert('サーバーとの通信に失敗しました');
         showLoading(false);
     }
+}
+
+// ========== 退職後シミュレーション実行 ==========
+async function runRetirementSimulation() {
+    // 既にデータがあれば再描画のみ
+    if (retirementData) {
+        renderRetirementView();
+        return;
+    }
+
+    showLoading(true);
+
+    try {
+        const result = await eel.run_retirement_simulation()();
+
+        if (result.success) {
+            retirementData = result.data;
+            console.log('退職後シミュレーション成功:', retirementData);
+
+            // ビューを更新
+            renderRetirementView();
+            showLoading(false);
+        } else {
+            console.error('退職後シミュレーションエラー:', result.error);
+            alert('退職後シミュレーションに失敗しました: ' + result.error);
+            showLoading(false);
+        }
+    } catch (error) {
+        console.error('通信エラー:', error);
+        alert('サーバーとの通信に失敗しました');
+        showLoading(false);
+    }
+}
+
+function renderRetirementView() {
+    if (!retirementData) return;
+
+    const summary = retirementData.summary;
+    const data = retirementData.retirement_data;
+
+    // サマリーカード更新
+    document.getElementById('retirementStartAssets').textContent = formatCurrency(summary.start_assets);
+    document.getElementById('retirementFinalAssets').textContent = formatCurrency(summary.final_assets);
+    document.getElementById('retirementTotalPension').textContent = formatCurrency(summary.total_pension);
+    document.getElementById('retirementTotalDividend').textContent = formatCurrency(summary.total_dividend);
+    document.getElementById('retirementTotalWithdrawal').textContent = formatCurrency(summary.total_withdrawal);
+
+    // 資産枯渇リスク表示
+    const depletionAge = summary.depletion_age;
+    const retirementWarning = document.getElementById('retirementWarning');
+    const depletionAgeElement = document.getElementById('retirementDepletionAge');
+
+    if (depletionAge) {
+        depletionAgeElement.textContent = `${depletionAge}歳で枯渇`;
+        depletionAgeElement.classList.add('text-red');
+        retirementWarning.style.display = 'block';
+    } else {
+        depletionAgeElement.textContent = '90歳まで安心';
+        depletionAgeElement.classList.add('text-green');
+        retirementWarning.style.display = 'none';
+    }
+
+    // 色分け
+    if (summary.final_assets < 10000000) {
+        document.getElementById('retirementFinalAssets').classList.add('text-red');
+    } else {
+        document.getElementById('retirementFinalAssets').classList.add('text-green');
+    }
+
+    // グラフを描画
+    renderRetirementAssetsChart(data);
+    renderRetirementAssetsBreakdownChart(data);
+    renderRetirementCashflowChart(data);
+    renderRetirementIncomeBreakdownChart(data);
+}
+
+// ========== モンテカルロシミュレーション実行 ==========
+async function runMontecarloSimulation() {
+    const iterations = parseInt(document.getElementById('montecarloIterations').value);
+    const btn = document.getElementById('runMontecarloBtn');
+
+    btn.disabled = true;
+    btn.textContent = `⏳ 計算中... (${iterations}回実行)`;
+    showLoading(true);
+
+    try {
+        const result = await eel.run_monte_carlo_simulation(iterations)();
+
+        if (result.success) {
+            montecarloData = result.data;
+            console.log('モンテカルロシミュレーション成功:', montecarloData);
+
+            // 結果を表示
+            renderMontecarloView();
+
+            btn.disabled = false;
+            btn.textContent = '🎲 モンテカルロ計算を開始';
+            showLoading(false);
+        } else {
+            console.error('モンテカルロシミュレーションエラー:', result.error);
+            alert('モンテカルロシミュレーションに失敗しました: ' + result.error);
+            btn.disabled = false;
+            btn.textContent = '🎲 モンテカルロ計算を開始';
+            showLoading(false);
+        }
+    } catch (error) {
+        console.error('通信エラー:', error);
+        alert('サーバーとの通信に失敗しました');
+        btn.disabled = false;
+        btn.textContent = '🎲 モンテカルロ計算を開始';
+        showLoading(false);
+    }
+}
+
+function renderMontecarloView() {
+    if (!montecarloData) return;
+
+    const summary = montecarloData.summary;
+
+    // 結果エリアを表示
+    document.getElementById('montecarloResults').style.display = 'block';
+
+    // サマリーカード更新
+    document.getElementById('montecarloMedian').textContent = formatCurrency(summary.median);
+    document.getElementById('montecarloMean').textContent = formatCurrency(summary.mean);
+    document.getElementById('montecarlo90th').textContent = formatCurrency(summary.percentiles['90th']);
+    document.getElementById('montecarlo10th').textContent = formatCurrency(summary.percentiles['10th']);
+
+    // 確率表示
+    document.getElementById('montecarlo50mProb').textContent = summary.target_probabilities['50m'].toFixed(1) + '%';
+    document.getElementById('montecarlo70mProb').textContent = summary.target_probabilities['70m'].toFixed(1) + '%';
+    document.getElementById('montecarlo100mProb').textContent = summary.target_probabilities['100m'].toFixed(1) + '%';
+
+    // グラフを描画
+    renderMontecarloHistogram(montecarloData.distribution);
+    renderMontecarloPercentileChart(montecarloData.all_results, summary.percentiles);
 }
 
 // ========== ダッシュボード更新 ==========

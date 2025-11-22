@@ -332,6 +332,54 @@ def delete_scenario_from_db(name):
 
 
 @eel.expose
+def run_retirement_simulation():
+    """
+    退職後シミュレーション（65-90歳）を実行
+
+    Returns:
+        dict: 計算結果
+    """
+    try:
+        retirement_data, summary = calculator.simulate_retirement()
+        return {
+            "success": True,
+            "data": {
+                "retirement_data": retirement_data,
+                "summary": summary
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def run_monte_carlo_simulation(num_simulations=1000):
+    """
+    モンテカルロシミュレーションを実行
+
+    Args:
+        num_simulations: シミュレーション回数
+
+    Returns:
+        dict: 計算結果
+    """
+    try:
+        result = calculator.run_monte_carlo(num_simulations=num_simulations)
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
 def calculate_scenario_comparison(scenarios):
     """
     複数シナリオを比較計算

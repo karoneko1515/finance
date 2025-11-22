@@ -33,6 +33,8 @@
             <button class="nav-tab active" data-view="dashboard">ダッシュボード</button>
             <button class="nav-tab" data-view="yearly-detail">年齢別詳細</button>
             <button class="nav-tab" data-view="cashflow">キャッシュフロー</button>
+            <button class="nav-tab" data-view="retirement">退職後</button>
+            <button class="nav-tab" data-view="montecarlo">モンテカルロ</button>
             <button class="nav-tab" data-view="timeline">タイムライン</button>
             <button class="nav-tab" data-view="education">教育費</button>
             <button class="nav-tab" data-view="dividend">配当金</button>
@@ -191,6 +193,134 @@
                 <div class="chart-container">
                     <h2>累積キャッシュフロー</h2>
                     <div id="cumulativeCashflowChart"></div>
+                </div>
+            </section>
+
+            <!-- 退職後ビュー -->
+            <section id="retirement-view" class="view">
+                <div class="retirement-header">
+                    <h2>退職後シミュレーション (65-90歳)</h2>
+                    <p class="retirement-subtitle">年金収入と配当金で生活費をまかなえるか、資産はいつまで持つかをシミュレーションします</p>
+                </div>
+
+                <div class="summary-cards">
+                    <div class="card">
+                        <h3>開始資産 (65歳時)</h3>
+                        <p class="amount" id="retirementStartAssets">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>最終資産 (90歳時)</h3>
+                        <p class="amount" id="retirementFinalAssets">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>累積年金収入</h3>
+                        <p class="amount" id="retirementTotalPension">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>累積配当金</h3>
+                        <p class="amount" id="retirementTotalDividend">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>累積取り崩し額</h3>
+                        <p class="amount" id="retirementTotalWithdrawal">-</p>
+                    </div>
+                    <div class="card">
+                        <h3>資産枯渇リスク</h3>
+                        <p class="amount" id="retirementDepletionAge">-</p>
+                        <p class="warning" id="retirementWarning" style="display: none;">
+                            ⚠️ 90歳まで資産が持たない可能性があります
+                        </p>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <h2>退職後の総資産推移 (65-90歳)</h2>
+                    <div id="retirementAssetsChart"></div>
+                </div>
+
+                <div class="detail-grid">
+                    <div class="chart-container">
+                        <h2>退職後の資産内訳推移</h2>
+                        <div id="retirementAssetsBreakdownChart"></div>
+                    </div>
+
+                    <div class="chart-container">
+                        <h2>退職後の年間収支</h2>
+                        <div id="retirementCashflowChart"></div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <h2>年金・配当金・取り崩し額の推移</h2>
+                    <div id="retirementIncomeBreakdownChart"></div>
+                </div>
+            </section>
+
+            <!-- モンテカルロシミュレーションビュー -->
+            <section id="montecarlo-view" class="view">
+                <div class="retirement-header">
+                    <h2>モンテカルロシミュレーション (確率的シミュレーション)</h2>
+                    <p class="retirement-subtitle">投資リターンの不確実性を考慮した1,000回のシミュレーションで、将来の資産額の範囲と確率を予測します</p>
+                </div>
+
+                <div class="montecarlo-controls">
+                    <label>
+                        シミュレーション回数:
+                        <select id="montecarloIterations">
+                            <option value="100">100回（高速）</option>
+                            <option value="500">500回（標準）</option>
+                            <option value="1000" selected>1,000回（推奨）</option>
+                            <option value="2000">2,000回（高精度）</option>
+                        </select>
+                    </label>
+                    <button id="runMontecarloBtn" class="btn btn-primary">🎲 モンテカルロ計算を開始</button>
+                    <p class="montecarlo-info">⏱️ 計算には10-30秒ほどかかります。気長にお待ちください...</p>
+                </div>
+
+                <div id="montecarloResults" style="display: none;">
+                    <div class="summary-cards">
+                        <div class="card">
+                            <h3>中央値 (50%)</h3>
+                            <p class="amount" id="montecarloMedian">-</p>
+                        </div>
+                        <div class="card">
+                            <h3>平均値</h3>
+                            <p class="amount" id="montecarloMean">-</p>
+                        </div>
+                        <div class="card">
+                            <h3>最良ケース (90%)</h3>
+                            <p class="amount" id="montecarlo90th">-</p>
+                        </div>
+                        <div class="card">
+                            <h3>最悪ケース (10%)</h3>
+                            <p class="amount" id="montecarlo10th">-</p>
+                        </div>
+                    </div>
+
+                    <div class="summary-cards">
+                        <div class="card">
+                            <h3>5,000万円以上の確率</h3>
+                            <p class="amount" id="montecarlo50mProb">-</p>
+                        </div>
+                        <div class="card">
+                            <h3>7,000万円以上の確率</h3>
+                            <p class="amount" id="montecarlo70mProb">-</p>
+                        </div>
+                        <div class="card">
+                            <h3>1億円以上の確率</h3>
+                            <p class="amount" id="montecarlo100mProb">-</p>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <h2>最終資産の分布（ヒストグラム）</h2>
+                        <div id="montecarloHistogram"></div>
+                    </div>
+
+                    <div class="chart-container">
+                        <h2>パーセンタイル別の資産推移</h2>
+                        <div id="montecarloPercentileChart"></div>
+                    </div>
                 </div>
             </section>
 

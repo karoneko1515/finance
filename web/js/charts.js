@@ -831,4 +831,388 @@ function renderAssetsPieCharts(assetsData) {
     Plotly.newPlot('assetsEndPieChart', [endTrace], endLayout, config);
 }
 
+// ========== 退職後シミュレーション用グラフ ==========
+function renderRetirementAssetsChart(data) {
+    const ages = data.map(d => d.age);
+    const totalAssets = data.map(d => d.assets.total);
+
+    const trace = {
+        x: ages,
+        y: totalAssets,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: '総資産',
+        line: {
+            color: '#1e3a8a',
+            width: 3
+        },
+        marker: {
+            size: 6,
+            color: '#3b82f6'
+        },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(59, 130, 246, 0.1)',
+        hovertemplate: '%{x}歳: %{y:,.0f}円<extra></extra>'
+    };
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: {
+            title: '年齢',
+            dtick: 5,
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        yaxis: {
+            title: '資産額 (円)',
+            tickformat: ',.0f',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        hovermode: 'closest',
+        margin: { t: 30, r: 30, b: 50, l: 80 }
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false
+    };
+
+    Plotly.newPlot('retirementAssetsChart', [trace], layout, config);
+}
+
+function renderRetirementAssetsBreakdownChart(data) {
+    const ages = data.map(d => d.age);
+
+    const traces = [
+        {
+            x: ages,
+            y: data.map(d => d.assets.cash),
+            name: '現金・預金',
+            type: 'scatter',
+            mode: 'lines',
+            stackgroup: 'one',
+            fillcolor: '#10b981',
+            line: { width: 0 },
+            hovertemplate: '%{x}歳 - 現金: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: data.map(d => d.assets.taxable_account),
+            name: '特定口座',
+            type: 'scatter',
+            mode: 'lines',
+            stackgroup: 'one',
+            fillcolor: '#ec4899',
+            line: { width: 0 },
+            hovertemplate: '%{x}歳 - 特定口座: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: data.map(d => d.assets.company_stock),
+            name: '自社株',
+            type: 'scatter',
+            mode: 'lines',
+            stackgroup: 'one',
+            fillcolor: '#8b5cf6',
+            line: { width: 0 },
+            hovertemplate: '%{x}歳 - 自社株: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: data.map(d => d.assets.nisa_growth),
+            name: 'NISA成長投資枠',
+            type: 'scatter',
+            mode: 'lines',
+            stackgroup: 'one',
+            fillcolor: '#3b82f6',
+            line: { width: 0 },
+            hovertemplate: '%{x}歳 - NISA成長: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: data.map(d => d.assets.nisa_tsumitate),
+            name: 'NISAつみたて枠',
+            type: 'scatter',
+            mode: 'lines',
+            stackgroup: 'one',
+            fillcolor: '#1e3a8a',
+            line: { width: 0 },
+            hovertemplate: '%{x}歳 - NISAつみたて: %{y:,.0f}円<extra></extra>'
+        }
+    ];
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: {
+            title: '年齢',
+            dtick: 5,
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        yaxis: {
+            title: '資産額 (円)',
+            tickformat: ',.0f',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        hovermode: 'x unified',
+        legend: {
+            orientation: 'h',
+            y: -0.2
+        },
+        margin: { t: 30, r: 30, b: 80, l: 80 }
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false
+    };
+
+    Plotly.newPlot('retirementAssetsBreakdownChart', traces, layout, config);
+}
+
+function renderRetirementCashflowChart(data) {
+    const ages = data.map(d => d.age);
+    const cashflows = data.map(d => d.cashflow);
+
+    const colors = cashflows.map(cf => cf >= 0 ? '#10b981' : '#ef4444');
+
+    const trace = {
+        x: ages,
+        y: cashflows,
+        type: 'bar',
+        name: '年間収支',
+        marker: {
+            color: colors
+        },
+        hovertemplate: '%{x}歳: %{y:,.0f}円<extra></extra>'
+    };
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: {
+            title: '年齢',
+            dtick: 5,
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        yaxis: {
+            title: 'キャッシュフロー (円)',
+            tickformat: ',.0f',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb',
+            zeroline: true,
+            zerolinecolor: isDarkMode ? '#6b7280' : '#9ca3af',
+            zerolinewidth: 2
+        },
+        hovermode: 'closest',
+        margin: { t: 30, r: 30, b: 50, l: 80 }
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false
+    };
+
+    Plotly.newPlot('retirementCashflowChart', [trace], layout, config);
+}
+
+function renderRetirementIncomeBreakdownChart(data) {
+    const ages = data.map(d => d.age);
+
+    const traces = [
+        {
+            x: ages,
+            y: data.map(d => d.income.pension),
+            name: '年金収入',
+            type: 'scatter',
+            mode: 'lines',
+            stackgroup: 'one',
+            fillcolor: '#10b981',
+            line: { width: 1, color: '#059669' },
+            hovertemplate: '%{x}歳 - 年金: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: data.map(d => d.income.dividend),
+            name: '配当金',
+            type: 'scatter',
+            mode: 'lines',
+            stackgroup: 'one',
+            fillcolor: '#3b82f6',
+            line: { width: 1, color: '#2563eb' },
+            hovertemplate: '%{x}歳 - 配当金: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: data.map(d => d.withdrawal),
+            name: '資産取り崩し',
+            type: 'scatter',
+            mode: 'lines',
+            line: { width: 3, color: '#ef4444', dash: 'dot' },
+            hovertemplate: '%{x}歳 - 取り崩し: %{y:,.0f}円<extra></extra>'
+        }
+    ];
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: {
+            title: '年齢',
+            dtick: 5,
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        yaxis: {
+            title: '金額 (円)',
+            tickformat: ',.0f',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        hovermode: 'x unified',
+        legend: {
+            orientation: 'h',
+            y: -0.2
+        },
+        margin: { t: 30, r: 30, b: 80, l: 80 }
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false
+    };
+
+    Plotly.newPlot('retirementIncomeBreakdownChart', traces, layout, config);
+}
+
+// ========== モンテカルロシミュレーション用グラフ ==========
+function renderMontecarloHistogram(distribution) {
+    const trace = {
+        x: distribution,
+        type: 'histogram',
+        nbinsx: 50,
+        marker: {
+            color: '#3b82f6',
+            line: {
+                color: '#1e3a8a',
+                width: 1
+            }
+        },
+        hovertemplate: '資産額: %{x:,.0f}円<br>件数: %{y}<extra></extra>'
+    };
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: {
+            title: '最終資産額 (円)',
+            tickformat: ',.0f',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        yaxis: {
+            title: 'シミュレーション回数',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        bargap: 0.05,
+        margin: { t: 30, r: 30, b: 60, l: 80 }
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false
+    };
+
+    Plotly.newPlot('montecarloHistogram', [trace], layout, config);
+}
+
+function renderMontecarloPercentileChart(allResults, percentiles) {
+    // 10th, 50th, 90thパーセンタイルの3つのシミュレーションを選択
+    const p10Result = allResults.find(r => Math.abs(r.final_assets - percentiles['10th']) < 1000000);
+    const p50Result = allResults.find(r => Math.abs(r.final_assets - percentiles['50th']) < 1000000);
+    const p90Result = allResults.find(r => Math.abs(r.final_assets - percentiles['90th']) < 1000000);
+
+    if (!p10Result || !p50Result || !p90Result) {
+        console.error('パーセンタイルデータが見つかりません');
+        return;
+    }
+
+    const ages10 = p10Result.yearly_data.map(d => d.age);
+    const assets10 = p10Result.yearly_data.map(d => d.assets_end);
+
+    const ages50 = p50Result.yearly_data.map(d => d.age);
+    const assets50 = p50Result.yearly_data.map(d => d.assets_end);
+
+    const ages90 = p90Result.yearly_data.map(d => d.age);
+    const assets90 = p90Result.yearly_data.map(d => d.assets_end);
+
+    const traces = [
+        {
+            x: ages90,
+            y: assets90,
+            type: 'scatter',
+            mode: 'lines',
+            name: '最良ケース (90%)',
+            line: {
+                color: '#10b981',
+                width: 3
+            },
+            hovertemplate: '%{x}歳: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages50,
+            y: assets50,
+            type: 'scatter',
+            mode: 'lines',
+            name: '標準ケース (50%)',
+            line: {
+                color: '#3b82f6',
+                width: 3
+            },
+            hovertemplate: '%{x}歳: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages10,
+            y: assets10,
+            type: 'scatter',
+            mode: 'lines',
+            name: '最悪ケース (10%)',
+            line: {
+                color: '#ef4444',
+                width: 3
+            },
+            hovertemplate: '%{x}歳: %{y:,.0f}円<extra></extra>'
+        }
+    ];
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: {
+            title: '年齢',
+            dtick: 5,
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        yaxis: {
+            title: '資産額 (円)',
+            tickformat: ',.0f',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        hovermode: 'x unified',
+        legend: {
+            orientation: 'h',
+            y: -0.2
+        },
+        margin: { t: 30, r: 30, b: 80, l: 80 }
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false
+    };
+
+    Plotly.newPlot('montecarloPercentileChart', traces, layout, config);
+}
+
 console.log('charts.js ロード完了');

@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from data_loader import DataLoader
+import random
 
 
 class LifePlanCalculator:
@@ -1035,6 +1036,296 @@ class LifePlanCalculator:
             "monthly_dividend": dividend_after_tax / 12,
             "dividend_yield": dividend_yield,
             "dividend_history": dividend_history
+        }
+
+    def simulate_retirement(self, start_assets=None):
+        """
+        退職後シミュレーション（65-90歳）
+
+        Args:
+            start_assets: 開始時の資産（Noneの場合は現役時代の最終資産を使用）
+
+        Returns:
+            tuple: (年次データリスト, サマリー)
+        """
+        if start_assets is None:
+            if not self.yearly_data:
+                # 現役時代のシミュレーションを先に実行
+                self.simulate_30_years()
+
+            # 65歳時点の資産を取得
+            last_year = self.yearly_data[-1]
+            start_assets = {
+                "nisa_tsumitate_balance": last_year["nisa_tsumitate"],
+                "nisa_growth_balance": last_year["nisa_growth"],
+                "company_stock_balance": last_year["company_stock"],
+                "taxable_account_balance": last_year.get("taxable_account", 0),
+                "cash_balance": last_year["cash"],
+                "total": last_year["assets_end"]
+            }
+
+        retirement_data = []
+        assets = start_assets.copy()
+
+        # 投資設定
+        investment_return = self.investment_settings["nisa"]["expected_return"]
+        dividend_yield = self.investment_settings["company_stock"]["dividend_yield"]
+        taxable_dividend_yield = self.investment_settings["taxable_account"]["dividend_yield"]
+
+        # 年金収入（月額）
+        pension = self.loader.get_pension()
+        monthly_pension = pension.get("monthly_amount", 180000)
+        spouse_pension = 100000  # 配偶者の年金（想定）
+
+        # 退職後の生活費（月額）
+        monthly_living_cost = 250000  # 基本生活費
+        monthly_medical = 20000  # 医療費（年齢とともに増加）
+        monthly_leisure = 50000  # 余暇・娯楽
+
+        for age in range(65, 91):  # 65-90歳
+            years_from_retirement = age - 65
+
+            # インフレ調整（年2%）
+            inflation_rate = self.inflation_settings.get("living_expenses_rate", 0.02)
+            adjusted_living = monthly_living_cost * ((1 + inflation_rate) ** years_from_retirement)
+            adjusted_medical = monthly_medical * ((1 + inflation_rate) ** years_from_retirement)
+            adjusted_leisure = monthly_leisure * ((1 + inflation_rate) ** years_from_retirement)
+
+            # 医療費は年齢とともに増加（75歳以降は1.5倍）
+            if age >= 75:
+                adjusted_medical *= 1.5
+
+            # 年間収入
+            annual_pension = (monthly_pension + spouse_pension) * 12
+
+            # 配当収入（税引後：約80%）
+            annual_dividend = (
+                assets["company_stock_balance"] * dividend_yield +
+                assets["taxable_account_balance"] * taxable_dividend_yield
+            ) * 0.8  # 20.315%の税金を引く
+
+            total_income = annual_pension + annual_dividend
+
+            # 年間支出
+            annual_living = (adjusted_living + adjusted_medical + adjusted_leisure) * 12
+
+            # 固定資産税・修繕費（持ち家の場合）
+            property_tax = 150000  # 年15万円
+            maintenance = 200000 * ((1 + inflation_rate) ** years_from_retirement)  # 年20万円から増加
+
+            annual_expenses = annual_living + property_tax + maintenance
+
+            # 年間収支
+            annual_cashflow = total_income - annual_expenses
+
+            # 不足分は資産を取り崩し
+            if annual_cashflow < 0:
+                # 現金から取り崩し
+                withdrawal = abs(annual_cashflow)
+                if assets["cash_balance"] >= withdrawal:
+                    assets["cash_balance"] -= withdrawal
+                else:
+                    # 現金不足の場合は投資資産を売却
+                    cash_used = assets["cash_balance"]
+                    assets["cash_balance"] = 0
+                    remaining_withdrawal = withdrawal - cash_used
+
+                    # 優先順位: 特定口座 → NISA成長 → NISAつみたて → 自社株
+                    if assets["taxable_account_balance"] >= remaining_withdrawal:
+                        assets["taxable_account_balance"] -= remaining_withdrawal
+                    elif assets["taxable_account_balance"] > 0:
+                        taxable_used = assets["taxable_account_balance"]
+                        assets["taxable_account_balance"] = 0
+                        remaining_withdrawal -= taxable_used
+
+                        if assets["nisa_growth_balance"] >= remaining_withdrawal:
+                            assets["nisa_growth_balance"] -= remaining_withdrawal
+                        elif assets["nisa_growth_balance"] > 0:
+                            nisa_growth_used = assets["nisa_growth_balance"]
+                            assets["nisa_growth_balance"] = 0
+                            remaining_withdrawal -= nisa_growth_used
+
+                            if assets["nisa_tsumitate_balance"] >= remaining_withdrawal:
+                                assets["nisa_tsumitate_balance"] -= remaining_withdrawal
+                            elif assets["nisa_tsumitate_balance"] > 0:
+                                nisa_tsumitate_used = assets["nisa_tsumitate_balance"]
+                                assets["nisa_tsumitate_balance"] = 0
+                                remaining_withdrawal -= nisa_tsumitate_used
+
+                                if assets["company_stock_balance"] >= remaining_withdrawal:
+                                    assets["company_stock_balance"] -= remaining_withdrawal
+                                else:
+                                    assets["company_stock_balance"] = max(0, assets["company_stock_balance"] - remaining_withdrawal)
+            else:
+                # 余剰分は現金に積み上げ
+                assets["cash_balance"] += annual_cashflow
+
+            # 投資資産の運用益（年次）
+            monthly_return = investment_return / 12
+            assets["nisa_tsumitate_balance"] *= (1 + monthly_return) ** 12
+            assets["nisa_growth_balance"] *= (1 + monthly_return) ** 12
+            assets["company_stock_balance"] *= (1 + monthly_return) ** 12
+            assets["taxable_account_balance"] *= (1 + monthly_return) ** 12
+
+            # 総資産
+            total_assets = (
+                assets["nisa_tsumitate_balance"] +
+                assets["nisa_growth_balance"] +
+                assets["company_stock_balance"] +
+                assets["taxable_account_balance"] +
+                assets["cash_balance"]
+            )
+
+            retirement_data.append({
+                "age": age,
+                "year": 2065 + (age - 65),
+                "income": {
+                    "pension": annual_pension,
+                    "dividend": annual_dividend,
+                    "total": total_income
+                },
+                "expenses": {
+                    "living": annual_living,
+                    "property_tax": property_tax,
+                    "maintenance": maintenance,
+                    "total": annual_expenses
+                },
+                "cashflow": annual_cashflow,
+                "assets": {
+                    "nisa_tsumitate": assets["nisa_tsumitate_balance"],
+                    "nisa_growth": assets["nisa_growth_balance"],
+                    "company_stock": assets["company_stock_balance"],
+                    "taxable_account": assets["taxable_account_balance"],
+                    "cash": assets["cash_balance"],
+                    "total": total_assets
+                },
+                "withdrawal": abs(annual_cashflow) if annual_cashflow < 0 else 0
+            })
+
+        # サマリー計算
+        final_assets = retirement_data[-1]["assets"]["total"] if retirement_data else 0
+        total_pension = sum(y["income"]["pension"] for y in retirement_data)
+        total_dividend = sum(y["income"]["dividend"] for y in retirement_data)
+        total_withdrawal = sum(y["withdrawal"] for y in retirement_data)
+
+        # 資産枯渇年齢を計算
+        depletion_age = None
+        for data in retirement_data:
+            if data["assets"]["total"] < 1000000:  # 100万円未満になった年齢
+                depletion_age = data["age"]
+                break
+
+        summary = {
+            "start_assets": start_assets["total"],
+            "final_assets": final_assets,
+            "total_pension": total_pension,
+            "total_dividend": total_dividend,
+            "total_withdrawal": total_withdrawal,
+            "depletion_age": depletion_age,
+            "assets_survived": depletion_age is None
+        }
+
+        return retirement_data, summary
+
+    def run_monte_carlo(self, num_simulations=1000, progress_callback=None):
+        """
+        モンテカルロシミュレーション（確率的シミュレーション）
+
+        Args:
+            num_simulations: シミュレーション回数（デフォルト1000回）
+            progress_callback: 進捗コールバック関数
+
+        Returns:
+            dict: モンテカルロシミュレーション結果
+        """
+        # 基本設定
+        base_return = self.investment_settings["nisa"]["expected_return"]
+        return_std = 0.15  # 標準偏差15%（株式市場の一般的な変動）
+
+        all_results = []
+
+        for i in range(num_simulations):
+            # 投資リターンをランダムに変動（正規分布）
+            annual_returns = []
+            for year in range(65 - self.basic_info["start_age"] + 1):
+                # 正規分布からランダムサンプリング
+                return_rate = random.gauss(base_return, return_std)
+                # 極端な値を制限（-30% 〜 +50%）
+                return_rate = max(-0.30, min(0.50, return_rate))
+                annual_returns.append(return_rate)
+
+            # 一時的なデータローダーを作成
+            temp_loader = DataLoader()
+            plan_data = temp_loader.get_all_data()
+
+            # 年齢ごとに異なるリターンを適用（簡易版）
+            # 実際には月次でリターンを変動させるべきだが、計算コストを考慮して年次で変動
+            temp_calc = LifePlanCalculator(temp_loader)
+
+            # シンプルなシミュレーション: 平均リターンを使用
+            avg_return = sum(annual_returns) / len(annual_returns)
+            plan_data["investment_settings"]["nisa"]["expected_return"] = avg_return
+            plan_data["investment_settings"]["taxable_account"]["expected_return"] = avg_return
+            temp_loader.plan_data = plan_data
+            temp_calc = LifePlanCalculator(temp_loader)
+
+            # シミュレーション実行
+            monthly, yearly = temp_calc.simulate_30_years()
+
+            # 最終資産を記録
+            final_assets = yearly[-1]["assets_end"] if yearly else 0
+            all_results.append({
+                "simulation_id": i + 1,
+                "final_assets": final_assets,
+                "avg_return": avg_return,
+                "yearly_data": yearly
+            })
+
+            # 進捗コールバック
+            if progress_callback and (i + 1) % 50 == 0:
+                progress_callback(i + 1, num_simulations)
+
+        # 統計分析
+        final_assets_list = [r["final_assets"] for r in all_results]
+        final_assets_list.sort()
+
+        # パーセンタイル計算
+        percentile_10 = final_assets_list[int(num_simulations * 0.10)]
+        percentile_25 = final_assets_list[int(num_simulations * 0.25)]
+        percentile_50 = final_assets_list[int(num_simulations * 0.50)]  # 中央値
+        percentile_75 = final_assets_list[int(num_simulations * 0.75)]
+        percentile_90 = final_assets_list[int(num_simulations * 0.90)]
+
+        # 目標達成確率（例: 5,000万円以上）
+        target_50m = sum(1 for assets in final_assets_list if assets >= 50000000) / num_simulations * 100
+        target_70m = sum(1 for assets in final_assets_list if assets >= 70000000) / num_simulations * 100
+        target_100m = sum(1 for assets in final_assets_list if assets >= 100000000) / num_simulations * 100
+
+        summary = {
+            "num_simulations": num_simulations,
+            "mean": sum(final_assets_list) / num_simulations,
+            "median": percentile_50,
+            "min": min(final_assets_list),
+            "max": max(final_assets_list),
+            "std": np.std(final_assets_list),
+            "percentiles": {
+                "10th": percentile_10,
+                "25th": percentile_25,
+                "50th": percentile_50,
+                "75th": percentile_75,
+                "90th": percentile_90
+            },
+            "target_probabilities": {
+                "50m": target_50m,
+                "70m": target_70m,
+                "100m": target_100m
+            }
+        }
+
+        return {
+            "summary": summary,
+            "all_results": all_results,
+            "distribution": final_assets_list
         }
 
     def export_to_dict(self):
