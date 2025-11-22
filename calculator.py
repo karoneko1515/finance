@@ -31,9 +31,51 @@ class LifePlanCalculator:
         self.monthly_data = []
         self.yearly_data = []
 
+    def calculate_social_insurance_detailed(self, monthly_salary):
+        """
+        社会保険料の詳細計算（健康保険・厚生年金・雇用保険）
+
+        Args:
+            monthly_salary: 月額給与
+
+        Returns:
+            dict: 各保険料の詳細
+        """
+        if "social_insurance_detailed" in self.tax_rates and self.tax_rates["social_insurance_detailed"].get("enabled", False):
+            si_detail = self.tax_rates["social_insurance_detailed"]
+
+            # 健康保険料（標準報酬月額に上限あり）
+            health_max = si_detail["health_insurance"]["max_monthly_salary"]
+            health_salary = min(monthly_salary, health_max)
+            health_insurance = health_salary * si_detail["health_insurance"]["rate"] * 0.5  # 労使折半
+
+            # 厚生年金保険料（標準報酬月額に上限あり）
+            pension_max = si_detail["employee_pension"]["max_monthly_salary"]
+            pension_salary = min(monthly_salary, pension_max)
+            employee_pension = pension_salary * si_detail["employee_pension"]["rate"] * si_detail["employee_pension"]["employee_share"]
+
+            # 雇用保険料
+            employment_insurance = monthly_salary * si_detail["employment_insurance"]["rate"]
+
+            return {
+                "health_insurance": health_insurance,
+                "employee_pension": employee_pension,
+                "employment_insurance": employment_insurance,
+                "total": health_insurance + employee_pension + employment_insurance
+            }
+        else:
+            # 簡易計算にフォールバック
+            total = monthly_salary * self.tax_rates["social_insurance_rate"]
+            return {
+                "health_insurance": total * 0.4,
+                "employee_pension": total * 0.55,
+                "employment_insurance": total * 0.05,
+                "total": total
+            }
+
     def calculate_takehome(self, gross_annual, housing_allowance=0):
         """
-        手取り額を計算
+        手取り額を計算（社会保険料の詳細計算対応）
 
         Args:
             gross_annual: 年間総支給額
@@ -43,9 +85,11 @@ class LifePlanCalculator:
             float: 手取り額
         """
         taxable_income = gross_annual + housing_allowance
+        monthly_average = taxable_income / 12
 
-        # 社会保険料
-        social_insurance = taxable_income * self.tax_rates["social_insurance_rate"]
+        # 社会保険料（詳細計算）
+        si_detail = self.calculate_social_insurance_detailed(monthly_average)
+        social_insurance = si_detail["total"] * 12
 
         # 所得税+住民税
         tax_base = taxable_income - social_insurance
@@ -110,22 +154,85 @@ class LifePlanCalculator:
         else:
             return spouse_income.get("65-99", 0)
 
-    def get_pension_for_age(self, age):
+    def calculate_pension_amount_detailed(self, start_age=65):
         """
-        年齢に対応する年金収入を取得
+        年金額の精密計算（繰上げ/繰下げ対応）
 
         Args:
-            age: 年齢
+            start_age: 年金受給開始年齢
+
+        Returns:
+            tuple: (本人月額, 配偶者月額)
+        """
+        pension = self.loader.get_pension()
+        base_amount = pension.get("monthly_amount", 180000)
+        base_start_age = 65
+        spouse_amount = pension.get("spouse_monthly_amount", 100000)
+
+        # 繰上げ/繰下げ計算
+        if "deferral_options" in pension and pension["deferral_options"].get("enabled", False):
+            monthly_rate = pension["deferral_options"]["monthly_rate"]
+            months_diff = (start_age - base_start_age) * 12
+
+            if start_age < base_start_age:
+                # 繰上げ（減額率: 0.4%/月）
+                reduction_rate = 0.004
+                adjustment = 1 - (abs(months_diff) * reduction_rate)
+            elif start_age > base_start_age:
+                # 繰下げ（増額率: 0.7%/月）
+                adjustment = 1 + (months_diff * monthly_rate)
+            else:
+                adjustment = 1.0
+
+            adjusted_amount = base_amount * adjustment
+            adjusted_spouse = spouse_amount * adjustment
+        else:
+            adjusted_amount = base_amount
+            adjusted_spouse = spouse_amount
+
+        return adjusted_amount, adjusted_spouse
+
+    def get_pension_for_age(self, age, start_age=None):
+        """
+        年齢に対応する年金収入を取得（繰上げ/繰下げ対応）
+
+        Args:
+            age: 現在の年齢
+            start_age: 年金受給開始年齢（Noneの場合はデフォルト）
 
         Returns:
             float: 月額年金
         """
         pension = self.loader.get_pension()
-        start_age = pension.get("start_age", 65)
-        monthly_amount = pension.get("monthly_amount", 0)
+
+        if start_age is None:
+            start_age = pension.get("start_age", 65)
 
         if age >= start_age:
-            return monthly_amount
+            amount, _ = self.calculate_pension_amount_detailed(start_age)
+            return amount
+        return 0
+
+    def get_spouse_pension_for_age(self, age, start_age=None):
+        """
+        配偶者の年金を取得
+
+        Args:
+            age: 現在の年齢
+            start_age: 年金受給開始年齢
+
+        Returns:
+            float: 配偶者の月額年金
+        """
+        pension = self.loader.get_pension()
+
+        if start_age is None:
+            start_age = pension.get("start_age", 65)
+
+        # 配偶者は通常65歳から
+        if age >= start_age:
+            _, spouse_amount = self.calculate_pension_amount_detailed(start_age)
+            return spouse_amount
         return 0
 
     def get_housing_allowance_for_age(self, age):
@@ -264,6 +371,95 @@ class LifePlanCalculator:
 
         adjusted = base_amount * ((1 + rate) ** years)
         return round(adjusted)
+
+    def calculate_retirement_benefit_tax(self, lump_sum, years_of_service):
+        """
+        退職所得控除と税額を計算
+
+        Args:
+            lump_sum: 退職金一時金
+            years_of_service: 勤続年数
+
+        Returns:
+            dict: 控除額、課税対象額、税額
+        """
+        # 退職所得控除の計算
+        if years_of_service <= 20:
+            deduction = 400000 * years_of_service
+        else:
+            deduction = 8000000 + 700000 * (years_of_service - 20)
+
+        # 課税退職所得金額（控除後の1/2）
+        taxable_amount = max(0, (lump_sum - deduction) / 2)
+
+        # 税額計算（所得税+住民税、簡易計算）
+        if taxable_amount <= 1950000:
+            tax = taxable_amount * 0.05
+        elif taxable_amount <= 3300000:
+            tax = taxable_amount * 0.1 - 97500
+        elif taxable_amount <= 6950000:
+            tax = taxable_amount * 0.2 - 427500
+        elif taxable_amount <= 9000000:
+            tax = taxable_amount * 0.23 - 636000
+        elif taxable_amount <= 18000000:
+            tax = taxable_amount * 0.33 - 1536000
+        else:
+            tax = taxable_amount * 0.4 - 2796000
+
+        # 住民税10%を加算
+        total_tax = tax + taxable_amount * 0.1
+
+        return {
+            "deduction": deduction,
+            "taxable_amount": taxable_amount,
+            "tax": total_tax,
+            "net_amount": lump_sum - total_tax
+        }
+
+    def get_retirement_benefit(self, age):
+        """
+        退職金を取得
+
+        Args:
+            age: 年齢
+
+        Returns:
+            dict: 退職金情報（一時金、企業年金）
+        """
+        retirement_benefit = self.loader.plan_data.get("retirement_benefit", {})
+
+        if not retirement_benefit.get("enabled", False):
+            return {"lump_sum_net": 0, "corporate_pension": 0}
+
+        # 65歳でのみ一時金を支給
+        if age == 65:
+            lump_sum = retirement_benefit.get("lump_sum", 0)
+            years_of_service = retirement_benefit.get("tax_deduction", {}).get("years_of_service", 38)
+
+            # 税金計算
+            tax_info = self.calculate_retirement_benefit_tax(lump_sum, years_of_service)
+
+            return {
+                "lump_sum_gross": lump_sum,
+                "lump_sum_net": tax_info["net_amount"],
+                "lump_sum_tax": tax_info["tax"],
+                "corporate_pension": 0
+            }
+
+        # 企業年金（月額）
+        corporate_pension = retirement_benefit.get("corporate_pension", {})
+        if corporate_pension.get("enabled", False):
+            start_age = corporate_pension.get("start_age", 65)
+            end_age = start_age + corporate_pension.get("years", 10)
+            monthly_amount = corporate_pension.get("monthly_amount", 0)
+
+            if start_age <= age < end_age:
+                return {
+                    "lump_sum_net": 0,
+                    "corporate_pension": monthly_amount
+                }
+
+        return {"lump_sum_net": 0, "corporate_pension": 0}
 
     def calculate_monthly_data(self, age, month, assets_previous_month):
         """
@@ -749,6 +945,26 @@ class LifePlanCalculator:
                             for ps in payment_sources
                         ]
                     })
+
+            # 退職金の処理
+            retirement_benefit = self.get_retirement_benefit(age)
+            retirement_lump_sum = 0
+            retirement_pension = 0
+
+            if retirement_benefit["lump_sum_net"] > 0:
+                # 65歳で退職金一時金を受領
+                retirement_lump_sum = retirement_benefit["lump_sum_net"]
+                assets["cash_balance"] += retirement_lump_sum
+                irregular_expenses.append({
+                    "type": "退職金（一時金・税引後）",
+                    "amount": -retirement_lump_sum,  # マイナスは収入
+                    "payment_sources": [{"source": "退職金", "amount": retirement_lump_sum}]
+                })
+
+            if retirement_benefit["corporate_pension"] > 0:
+                # 企業年金を年額で計算
+                retirement_pension = retirement_benefit["corporate_pension"] * 12
+                assets["cash_balance"] += retirement_pension
 
             # 総資産
             assets["total"] = (assets["nisa_tsumitate_balance"] +
@@ -1737,6 +1953,584 @@ class LifePlanCalculator:
                 progression[p].append(year_assets[idx])
 
         return progression
+
+    def generate_alerts(self, yearly_data):
+        """
+        アラートを生成（現金不足、赤字、NISA枠余り等を検出）
+
+        Args:
+            yearly_data: 年次データのリスト
+
+        Returns:
+            list: アラートのリスト
+        """
+        alerts = []
+        alert_settings = self.loader.plan_data.get("alert_settings", {})
+
+        if not alert_settings.get("enabled", True):
+            return alerts
+
+        cash_warning = alert_settings.get("cash_warning_threshold", 1000000)
+        cash_critical = alert_settings.get("cash_critical_threshold", 500000)
+        nisa_threshold = alert_settings.get("nisa_utilization_threshold", 0.8)
+
+        for year_data in yearly_data:
+            age = year_data["age"]
+            cash = year_data.get("cash", 0)
+            cashflow = year_data.get("cashflow_annual", 0)
+
+            # 現金不足アラート
+            if cash < cash_critical:
+                alerts.append({
+                    "age": age,
+                    "severity": "critical",
+                    "type": "low_cash",
+                    "message": f"{age}歳時点で現金が{cash/10000:.0f}万円しかありません（危険レベル）",
+                    "value": cash
+                })
+            elif cash < cash_warning:
+                alerts.append({
+                    "age": age,
+                    "severity": "warning",
+                    "type": "low_cash",
+                    "message": f"{age}歳時点で現金が{cash/10000:.0f}万円を下回っています",
+                    "value": cash
+                })
+
+            # 赤字アラート
+            if cashflow < 0 and alert_settings.get("deficit_warning", True):
+                alerts.append({
+                    "age": age,
+                    "severity": "warning",
+                    "type": "deficit",
+                    "message": f"{age}歳は年間{abs(cashflow)/10000:.0f}万円の赤字です",
+                    "value": cashflow
+                })
+
+        # NISA枠の利用率チェック
+        total_nisa_contribution = sum(
+            y.get("nisa_tsumitate", 0) + y.get("nisa_growth", 0)
+            for y in yearly_data if y["age"] < 65
+        )
+        years_count = len([y for y in yearly_data if y["age"] < 65])
+        nisa_limit = self.investment_settings["nisa"]["tsumitate_limit"] + \
+                     self.investment_settings["nisa"]["growth_limit"]
+
+        if years_count > 0:
+            avg_annual_nisa = total_nisa_contribution / years_count
+            if avg_annual_nisa < 1800000 * nisa_threshold:  # 年180万円の80%
+                alerts.append({
+                    "age": None,
+                    "severity": "info",
+                    "type": "nisa_underutilized",
+                    "message": f"NISA枠を十分に活用できていません（年平均{avg_annual_nisa/10000:.0f}万円）",
+                    "value": avg_annual_nisa
+                })
+
+        return alerts
+
+    def calculate_risk_score(self, yearly_data, monte_carlo_data=None):
+        """
+        リスク評価スコアを計算
+
+        Args:
+            yearly_data: 年次データ
+            monte_carlo_data: モンテカルロデータ（オプション）
+
+        Returns:
+            dict: リスクスコアと評価
+        """
+        risk_scoring = self.loader.plan_data.get("risk_scoring", {})
+
+        if not risk_scoring.get("enabled", True):
+            return {"score": 0, "grade": "N/A", "details": {}}
+
+        weights = risk_scoring.get("weights", {
+            "final_assets": 0.3,
+            "cash_stability": 0.25,
+            "deficit_years": 0.2,
+            "investment_diversity": 0.15,
+            "emergency_fund": 0.1
+        })
+
+        scores = {}
+
+        # 1. 最終資産スコア（100点満点）
+        final_assets = yearly_data[-1]["assets_end"]
+        if final_assets >= 100000000:  # 1億円以上
+            scores["final_assets"] = 100
+        elif final_assets >= 70000000:
+            scores["final_assets"] = 80 + (final_assets - 70000000) / 30000000 * 20
+        elif final_assets >= 50000000:
+            scores["final_assets"] = 60 + (final_assets - 50000000) / 20000000 * 20
+        else:
+            scores["final_assets"] = max(0, final_assets / 50000000 * 60)
+
+        # 2. 現金安定性スコア（100点満点）
+        min_cash = min(y.get("cash", 0) for y in yearly_data)
+        avg_cash = sum(y.get("cash", 0) for y in yearly_data) / len(yearly_data)
+
+        if min_cash >= 3000000:  # 常に300万円以上
+            cash_score = 100
+        elif min_cash >= 1000000:
+            cash_score = 60 + (min_cash - 1000000) / 2000000 * 40
+        else:
+            cash_score = max(0, min_cash / 1000000 * 60)
+
+        scores["cash_stability"] = cash_score
+
+        # 3. 赤字年数スコア（100点満点）
+        deficit_years = sum(1 for y in yearly_data if y.get("cashflow_annual", 0) < 0)
+        deficit_score = max(0, 100 - deficit_years * 5)  # 赤字1年で-5点
+        scores["deficit_years"] = deficit_score
+
+        # 4. 投資分散スコア（100点満点）
+        last_year = yearly_data[-1]
+        nisa_ratio = (last_year.get("nisa_tsumitate", 0) + last_year.get("nisa_growth", 0)) / max(1, final_assets)
+        stock_ratio = last_year.get("company_stock", 0) / max(1, final_assets)
+        taxable_ratio = last_year.get("taxable_account", 0) / max(1, final_assets)
+
+        # バランスが取れているほど高得点
+        diversity_score = 100
+        if stock_ratio > 0.5:  # 自社株が50%超は集中リスク
+            diversity_score -= 30
+        if nisa_ratio < 0.3:  # NISA比率が低い
+            diversity_score -= 20
+
+        scores["investment_diversity"] = max(0, diversity_score)
+
+        # 5. 緊急予備費スコア（100点満点）
+        emergency_reserve = self.loader.plan_data.get("emergency_reserve", 3000000)
+        avg_cash_score = min(100, avg_cash / emergency_reserve * 100)
+        scores["emergency_fund"] = avg_cash_score
+
+        # 総合スコア計算
+        total_score = sum(scores[key] * weights.get(key, 0) for key in scores.keys())
+
+        # グレード判定
+        grade_thresholds = risk_scoring.get("grade_thresholds", {
+            "S": 90, "A": 80, "B": 70, "C": 60, "D": 0
+        })
+
+        grade = "D"
+        for g, threshold in sorted(grade_thresholds.items(), key=lambda x: x[1], reverse=True):
+            if total_score >= threshold:
+                grade = g
+                break
+
+        # リスク要因と強みを抽出
+        risk_factors = []
+        strengths = []
+
+        if scores["final_assets"] < 60:
+            risk_factors.append(f"最終資産が目標に届いていません（{final_assets/10000:.0f}万円）")
+        else:
+            strengths.append(f"最終資産が十分です（{final_assets/10000:.0f}万円）")
+
+        if scores["cash_stability"] < 60:
+            risk_factors.append(f"現金不足のリスクがあります（最低{min_cash/10000:.0f}万円）")
+        else:
+            strengths.append(f"現金が安定しています（平均{avg_cash/10000:.0f}万円）")
+
+        if deficit_years > 3:
+            risk_factors.append(f"{deficit_years}年間赤字があります")
+        else:
+            strengths.append("収支が安定しています")
+
+        if scores["investment_diversity"] < 60:
+            risk_factors.append("投資先の分散が不十分です")
+        else:
+            strengths.append("投資先が適切に分散されています")
+
+        return {
+            "score": round(total_score, 1),
+            "grade": grade,
+            "scores": scores,
+            "risk_factors": risk_factors,
+            "strengths": strengths,
+            "details": {
+                "final_assets": final_assets,
+                "min_cash": min_cash,
+                "avg_cash": avg_cash,
+                "deficit_years": deficit_years
+            }
+        }
+
+    def calculate_furusato_nozei_limit(self, gross_annual_income, dependents=0):
+        """
+        ふるさと納税控除限度額を計算
+
+        Args:
+            gross_annual_income: 年間総収入
+            dependents: 扶養家族数
+
+        Returns:
+            dict: ふるさと納税情報
+        """
+        furusato_settings = self.tax_rates.get("furusato_nozei", {})
+
+        if not furusato_settings.get("enabled", True):
+            return {"limit": 0, "benefit": 0}
+
+        # 簡易計算式（住民税所得割の約20%）
+        # 給与所得控除
+        if gross_annual_income <= 1625000:
+            employment_deduction = 550000
+        elif gross_annual_income <= 1800000:
+            employment_deduction = gross_annual_income * 0.4 - 100000
+        elif gross_annual_income <= 3600000:
+            employment_deduction = gross_annual_income * 0.3 + 80000
+        elif gross_annual_income <= 6600000:
+            employment_deduction = gross_annual_income * 0.2 + 440000
+        elif gross_annual_income <= 8500000:
+            employment_deduction = gross_annual_income * 0.1 + 1100000
+        else:
+            employment_deduction = 1950000
+
+        # 所得金額
+        income = gross_annual_income - employment_deduction
+
+        # 所得控除（基礎控除48万円 + 社会保険料控除 + 扶養控除）
+        basic_deduction = 480000
+        social_insurance = gross_annual_income * self.tax_rates["social_insurance_rate"]
+        dependent_deduction = dependents * 380000
+
+        total_deduction = basic_deduction + social_insurance + dependent_deduction
+
+        # 課税所得
+        taxable_income = max(0, income - total_deduction)
+
+        # 住民税所得割（課税所得の10%）
+        resident_tax = taxable_income * 0.1
+
+        # ふるさと納税限度額（住民税所得割の約20% + 2,000円）
+        limit = resident_tax * 0.2 + 2000
+
+        # 実質2,000円でもらえる返礼品の価値（限度額の30%と仮定）
+        benefit = (limit - 2000) * 0.3
+
+        return {
+            "limit": round(limit, -3),  # 千円単位で四捨五入
+            "benefit": round(benefit, -3),
+            "resident_tax": resident_tax,
+            "description": f"年収{gross_annual_income/10000:.0f}万円の場合"
+        }
+
+    def calculate_medical_deduction(self, medical_expenses, gross_annual_income):
+        """
+        医療費控除を計算
+
+        Args:
+            medical_expenses: 年間医療費
+            gross_annual_income: 年間総収入
+
+        Returns:
+            dict: 医療費控除情報
+        """
+        medical_settings = self.tax_rates.get("medical_expense_deduction", {})
+
+        if not medical_settings.get("enabled", True):
+            return {"deduction": 0, "tax_savings": 0}
+
+        threshold = medical_settings.get("threshold", 100000)
+
+        # 医療費控除額（10万円または所得の5%のいずれか低い方を超えた分）
+        income_threshold = gross_annual_income * 0.05
+        actual_threshold = min(threshold, income_threshold)
+
+        deduction = max(0, medical_expenses - actual_threshold)
+        deduction = min(deduction, 2000000)  # 上限200万円
+
+        # 税率を所得に応じて決定（簡易計算）
+        if gross_annual_income <= 5500000:
+            tax_rate = 0.15  # 所得税5% + 住民税10%
+        elif gross_annual_income <= 8000000:
+            tax_rate = 0.20  # 所得税10% + 住民税10%
+        else:
+            tax_rate = 0.23  # 所得税13% + 住民税10%
+
+        tax_savings = deduction * tax_rate
+
+        return {
+            "deduction": deduction,
+            "tax_savings": round(tax_savings, -3),
+            "threshold": actual_threshold,
+            "description": f"医療費{medical_expenses/10000:.0f}万円の場合"
+        }
+
+    def calculate_tax_optimization_suggestions(self, yearly_data):
+        """
+        税金最適化の提案を生成
+
+        Args:
+            yearly_data: 年次データ
+
+        Returns:
+            list: 最適化提案のリスト
+        """
+        suggestions = []
+
+        for year_data in yearly_data:
+            age = year_data["age"]
+
+            # 収入情報から年収を推定（簡易計算）
+            income_total = year_data.get("income_total", 0)
+            gross_estimate = income_total / 0.75  # 手取りから逆算（簡易）
+
+            # ふるさと納税の提案
+            furusato = self.calculate_furusato_nozei_limit(gross_estimate, dependents=0)
+            if furusato["limit"] > 10000:
+                suggestions.append({
+                    "age": age,
+                    "type": "furusato_nozei",
+                    "title": f"{age}歳：ふるさと納税で節税",
+                    "savings": furusato["benefit"],
+                    "details": f"限度額{furusato['limit']/10000:.0f}万円まで寄付可能。実質2,000円で約{furusato['benefit']/10000:.0f}万円相当の返礼品",
+                    "action": f"年間{furusato['limit']/10000:.0f}万円のふるさと納税を実行"
+                })
+
+        return suggestions
+
+    def run_optimization_analysis(self, num_patterns=5):
+        """
+        最適化提案AIを実行（現在のプランを分析して改善案を提案）
+
+        Args:
+            num_patterns: 生成する改善パターン数
+
+        Returns:
+            dict: 最適化提案結果
+        """
+        # 現在のプランを実行
+        current_monthly, current_yearly = self.simulate_30_years()
+        current_score = self.calculate_risk_score(current_yearly)["score"]
+
+        # 問題点を検出
+        alerts = self.generate_alerts(current_yearly)
+        issues = self._analyze_plan_issues(current_yearly, alerts)
+
+        # 改善パターンを生成
+        patterns = self._generate_improvement_patterns(issues, num_patterns)
+
+        # 各パターンをシミュレーション
+        results = []
+        for i, pattern in enumerate(patterns):
+            # 一時的なDataLoaderを作成
+            from data_loader import DataLoader
+            temp_loader = DataLoader()
+            plan_data = temp_loader.get_all_data()
+
+            # パターンを適用
+            plan_data = self._apply_pattern(plan_data, pattern)
+
+            temp_loader.plan_data = plan_data
+            temp_calc = LifePlanCalculator(temp_loader)
+
+            # シミュレーション実行
+            try:
+                monthly, yearly = temp_calc.simulate_30_years()
+                score = temp_calc.calculate_risk_score(yearly)["score"]
+
+                final_assets = yearly[-1]["assets_end"]
+                improvement = final_assets - current_yearly[-1]["assets_end"]
+
+                results.append({
+                    "pattern_id": i + 1,
+                    "name": pattern["name"],
+                    "reason": pattern["reason"],
+                    "final_assets": final_assets,
+                    "improvement": improvement,
+                    "improvement_pct": (improvement / current_yearly[-1]["assets_end"]) * 100,
+                    "score": score,
+                    "score_improvement": score - current_score,
+                    "yearly_data": yearly,
+                    "changes": pattern["changes"]
+                })
+            except Exception as e:
+                print(f"Pattern {i+1} failed: {e}")
+                continue
+
+        # スコアでソート
+        results.sort(key=lambda x: x["score"], reverse=True)
+
+        return {
+            "current": {
+                "final_assets": current_yearly[-1]["assets_end"],
+                "score": current_score,
+                "issues": issues,
+                "alerts": alerts
+            },
+            "suggestions": results[:3],  # トップ3を返す
+            "all_patterns": results
+        }
+
+    def _analyze_plan_issues(self, yearly_data, alerts):
+        """
+        プランの問題点を分析
+
+        Args:
+            yearly_data: 年次データ
+            alerts: アラートリスト
+
+        Returns:
+            list: 問題点のリスト
+        """
+        issues = []
+
+        # 現金不足の問題
+        min_cash = min(y.get("cash", 0) for y in yearly_data)
+        if min_cash < 1000000:
+            issues.append({
+                "type": "low_cash",
+                "severity": "high" if min_cash < 500000 else "medium",
+                "description": f"現金が最低{min_cash/10000:.0f}万円まで減少",
+                "recommendation": "緊急予備費を増やす、または支出を削減"
+            })
+
+        # 赤字年の問題
+        deficit_years = [y for y in yearly_data if y.get("cashflow_annual", 0) < 0]
+        if len(deficit_years) > 0:
+            issues.append({
+                "type": "deficit",
+                "severity": "high" if len(deficit_years) > 3 else "medium",
+                "description": f"{len(deficit_years)}年間が赤字",
+                "ages": [y["age"] for y in deficit_years],
+                "recommendation": "投資額を減らすか、収入を増やす"
+            })
+
+        # NISA枠の未活用
+        total_nisa = sum(y.get("nisa_tsumitate", 0) + y.get("nisa_growth", 0) for y in yearly_data)
+        avg_nisa = total_nisa / len(yearly_data)
+        if avg_nisa < 1440000:  # 年180万円の80%
+            issues.append({
+                "type": "nisa_underutilized",
+                "severity": "low",
+                "description": f"NISA枠を年平均{avg_nisa/10000:.0f}万円しか使っていない",
+                "recommendation": "NISA積立額を増やす"
+            })
+
+        # 最終資産が低い
+        final_assets = yearly_data[-1]["assets_end"]
+        if final_assets < 50000000:
+            issues.append({
+                "type": "low_final_assets",
+                "severity": "high",
+                "description": f"最終資産が{final_assets/10000:.0f}万円で目標未達",
+                "recommendation": "投資額を増やす、または支出を削減"
+            })
+
+        return issues
+
+    def _generate_improvement_patterns(self, issues, num_patterns):
+        """
+        改善パターンを生成
+
+        Args:
+            issues: 問題点リスト
+            num_patterns: 生成数
+
+        Returns:
+            list: 改善パターンのリスト
+        """
+        patterns = []
+
+        # パターン1: NISA積立を増やす
+        patterns.append({
+            "name": "NISA積立額を増やす（月+1万円）",
+            "reason": "NISA枠を最大限活用して節税効果を高める",
+            "changes": [
+                {"type": "nisa_increase", "amount": 10000}
+            ]
+        })
+
+        # パターン2: 高配当株投資を増やす
+        patterns.append({
+            "name": "高配当株投資を増やす（月+2万円）",
+            "reason": "配当収入を増やして老後の安定収入を確保",
+            "changes": [
+                {"type": "high_dividend_increase", "amount": 20000}
+            ]
+        })
+
+        # パターン3: 全体的に投資額を10%増やす
+        patterns.append({
+            "name": "全投資額を10%増額",
+            "reason": "資産形成を加速し、最終資産を増やす",
+            "changes": [
+                {"type": "all_investment_increase", "rate": 1.10}
+            ]
+        })
+
+        # パターン4: 配当再投資率を上げる
+        patterns.append({
+            "name": "配当再投資率を20%アップ",
+            "reason": "複利効果を最大化",
+            "changes": [
+                {"type": "dividend_reinvest_increase", "rate": 0.20}
+            ]
+        })
+
+        # パターン5: 緊急予備費を削減して投資へ
+        patterns.append({
+            "name": "緊急予備費を削減（月-1万円）して投資へ",
+            "reason": "余剰資金を運用に回して資産を増やす",
+            "changes": [
+                {"type": "emergency_to_investment", "amount": 10000}
+            ]
+        })
+
+        return patterns[:num_patterns]
+
+    def _apply_pattern(self, plan_data, pattern):
+        """
+        改善パターンをプランデータに適用
+
+        Args:
+            plan_data: プランデータ
+            pattern: 改善パターン
+
+        Returns:
+            dict: 修正されたプランデータ
+        """
+        for change in pattern["changes"]:
+            if change["type"] == "nisa_increase":
+                # 全フェーズのNISA積立を増額
+                for phase_key, phase_data in plan_data["phase_definitions"].items():
+                    if "nisa_tsumitate" in phase_data.get("monthly_investment", {}):
+                        phase_data["monthly_investment"]["nisa_tsumitate"] += change["amount"]
+
+            elif change["type"] == "high_dividend_increase":
+                # 高配当株投資を増額（phase5, phase6）
+                for phase_key in ["phase5", "phase6"]:
+                    if phase_key in plan_data["phase_definitions"]:
+                        phase_data = plan_data["phase_definitions"][phase_key]
+                        if "high_dividend_stocks" in phase_data.get("monthly_investment", {}):
+                            phase_data["monthly_investment"]["high_dividend_stocks"] += change["amount"]
+
+            elif change["type"] == "all_investment_increase":
+                # 全投資額を指定倍率で増額
+                for phase_key, phase_data in plan_data["phase_definitions"].items():
+                    for inv_key in phase_data.get("monthly_investment", {}).keys():
+                        phase_data["monthly_investment"][inv_key] *= change["rate"]
+                    for bonus_key in phase_data.get("bonus_allocation", {}).keys():
+                        if "investment" in bonus_key or "fund" in bonus_key:
+                            phase_data["bonus_allocation"][bonus_key] *= change["rate"]
+
+            elif change["type"] == "dividend_reinvest_increase":
+                # 配当再投資率を増やす
+                for age_key in plan_data["investment_settings"]["dividend_reinvestment"].keys():
+                    current_rate = plan_data["investment_settings"]["dividend_reinvestment"][age_key]
+                    plan_data["investment_settings"]["dividend_reinvestment"][age_key] = min(1.0, current_rate + change["rate"])
+
+            elif change["type"] == "emergency_to_investment":
+                # 緊急予備費を削減してNISAへ
+                for phase_key, phase_data in plan_data["phase_definitions"].items():
+                    if "emergency_fund" in phase_data.get("monthly_investment", {}):
+                        phase_data["monthly_investment"]["emergency_fund"] -= change["amount"]
+                        if "nisa_tsumitate" in phase_data["monthly_investment"]:
+                            phase_data["monthly_investment"]["nisa_tsumitate"] += change["amount"]
+
+        return plan_data
 
     def export_to_dict(self):
         """

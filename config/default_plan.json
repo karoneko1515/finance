@@ -46,7 +46,37 @@
   "pension": {
     "start_age": 65,
     "monthly_amount": 180000,
-    "description": "厚生年金（月額18万円、年額216万円）"
+    "spouse_monthly_amount": 100000,
+    "description": "厚生年金（月額18万円、年額216万円）",
+    "detailed_calculation": {
+      "enabled": true,
+      "average_monthly_salary": 600000,
+      "years_enrolled": 40,
+      "birth_year": 2000,
+      "spouse_adjustment": true
+    },
+    "deferral_options": {
+      "enabled": true,
+      "min_age": 60,
+      "max_age": 75,
+      "monthly_rate": 0.007,
+      "description": "1ヶ月繰下げで0.7%増額、繰上げで0.4%減額"
+    }
+  },
+  "retirement_benefit": {
+    "enabled": true,
+    "lump_sum": 25000000,
+    "corporate_pension": {
+      "enabled": true,
+      "start_age": 65,
+      "monthly_amount": 150000,
+      "years": 10,
+      "description": "企業年金（10年確定）"
+    },
+    "tax_deduction": {
+      "years_of_service": 38,
+      "description": "勤続年数38年（27歳〜65歳）"
+    }
   },
   "housing_allowance": {
     "45-49": 90000
@@ -291,11 +321,40 @@
       "10000001-99999999": 0.69
     },
     "social_insurance_rate": 0.145,
+    "social_insurance_detailed": {
+      "enabled": true,
+      "health_insurance": {
+        "rate": 0.0998,
+        "max_monthly_salary": 1390000,
+        "description": "健康保険料（協会けんぽ）"
+      },
+      "employee_pension": {
+        "rate": 0.183,
+        "employee_share": 0.5,
+        "max_monthly_salary": 650000,
+        "description": "厚生年金保険料"
+      },
+      "employment_insurance": {
+        "rate": 0.006,
+        "description": "雇用保険料"
+      }
+    },
     "income_tax_rates": {
       "0-5500000": 0.085,
       "5500001-8000000": 0.115,
       "8000001-10000000": 0.125,
       "10000001-99999999": 0.165
+    },
+    "furusato_nozei": {
+      "enabled": true,
+      "calculation_method": "standard",
+      "self_payment": 2000,
+      "description": "ふるさと納税控除限度額自動計算"
+    },
+    "medical_expense_deduction": {
+      "enabled": true,
+      "threshold": 100000,
+      "description": "医療費控除（年10万円超）"
     }
   },
   "mortgage_deduction": {
@@ -307,9 +366,45 @@
     "enabled": true,
     "living_expenses_rate": 0.02,
     "education_rate": 0.01,
-    "housing_rate": 0.0
+    "housing_rate": 0.0,
+    "variable": {
+      "enabled": true,
+      "min_rate": 0.01,
+      "max_rate": 0.05,
+      "default_rate": 0.02,
+      "description": "インフレ率をスライダーで調整可能"
+    }
   },
   "emergency_reserve": 3000000,
+  "alert_settings": {
+    "enabled": true,
+    "cash_warning_threshold": 1000000,
+    "cash_critical_threshold": 500000,
+    "deficit_warning": true,
+    "nisa_utilization_threshold": 0.8,
+    "risk_assessment": {
+      "enabled": true,
+      "monte_carlo_10th_threshold": 30000000,
+      "description": "リスク評価とアラート機能"
+    }
+  },
+  "risk_scoring": {
+    "enabled": true,
+    "weights": {
+      "final_assets": 0.3,
+      "cash_stability": 0.25,
+      "deficit_years": 0.2,
+      "investment_diversity": 0.15,
+      "emergency_fund": 0.1
+    },
+    "grade_thresholds": {
+      "S": 90,
+      "A": 80,
+      "B": 70,
+      "C": 60,
+      "D": 0
+    }
+  },
   "scenario_settings": {
     "child_education": ["私立理系", "国公立", "私立文系"],
     "investment_returns": [0.03, 0.05, 0.07],

@@ -465,6 +465,176 @@ def calculate_scenario_comparison(scenarios):
         }
 
 
+@eel.expose
+def get_alerts_and_risk_score():
+    """
+    アラートとリスクスコアを取得
+
+    Returns:
+        dict: アラートとリスクスコア
+    """
+    try:
+        monthly, yearly = calculator.simulate_30_years()
+
+        # アラート生成
+        alerts = calculator.generate_alerts(yearly)
+
+        # リスクスコア計算
+        risk_score = calculator.calculate_risk_score(yearly)
+
+        return {
+            "success": True,
+            "data": {
+                "alerts": alerts,
+                "risk_score": risk_score
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def calculate_furusato_nozei(gross_annual_income, dependents=0):
+    """
+    ふるさと納税限度額を計算
+
+    Args:
+        gross_annual_income: 年間総収入
+        dependents: 扶養家族数
+
+    Returns:
+        dict: ふるさと納税情報
+    """
+    try:
+        result = calculator.calculate_furusato_nozei_limit(gross_annual_income, dependents)
+
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def calculate_medical_deduction(medical_expenses, gross_annual_income):
+    """
+    医療費控除を計算
+
+    Args:
+        medical_expenses: 年間医療費
+        gross_annual_income: 年間総収入
+
+    Returns:
+        dict: 医療費控除情報
+    """
+    try:
+        result = calculator.calculate_medical_deduction(medical_expenses, gross_annual_income)
+
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def run_optimization_analysis(num_patterns=5):
+    """
+    最適化提案AIを実行
+
+    Args:
+        num_patterns: 生成する改善パターン数
+
+    Returns:
+        dict: 最適化提案結果
+    """
+    try:
+        result = calculator.run_optimization_analysis(num_patterns)
+
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def calculate_pension_deferral_analysis(start_ages):
+    """
+    年金繰上げ/繰下げの損益分岐点分析
+
+    Args:
+        start_ages: 分析する受給開始年齢のリスト（例: [60, 65, 70, 75]）
+
+    Returns:
+        dict: 各受給開始年齢での分析結果
+    """
+    try:
+        results = []
+
+        for start_age in start_ages:
+            # 年金額を計算
+            monthly_amount, spouse_amount = calculator.calculate_pension_amount_detailed(start_age)
+
+            # 累積受給額を計算（90歳まで）
+            years_receiving = 90 - start_age
+            total_received = (monthly_amount + spouse_amount) * 12 * years_receiving
+
+            results.append({
+                "start_age": start_age,
+                "monthly_amount": monthly_amount,
+                "spouse_amount": spouse_amount,
+                "total_monthly": monthly_amount + spouse_amount,
+                "years_receiving": years_receiving,
+                "total_received": total_received,
+                "adjustment_rate": (monthly_amount / 180000 - 1) * 100  # 65歳基準からの変化率
+            })
+
+        # 損益分岐点を計算
+        base_65 = next((r for r in results if r["start_age"] == 65), None)
+
+        if base_65:
+            for result in results:
+                if result["start_age"] != 65:
+                    # 損益分岐年齢を計算
+                    # 65歳受給との累積差額がゼロになる年齢
+                    monthly_diff = result["total_monthly"] - base_65["total_monthly"]
+                    if monthly_diff != 0:
+                        months_to_breakeven = abs((65 - result["start_age"]) * base_65["total_monthly"] * 12 / monthly_diff)
+                        breakeven_age = result["start_age"] + months_to_breakeven / 12
+                        result["breakeven_age"] = round(breakeven_age, 1)
+                    else:
+                        result["breakeven_age"] = None
+
+        return {
+            "success": True,
+            "data": {
+                "analysis": results,
+                "recommendation": "70歳繰下げで受給額が42%増加します。" if len(results) > 0 else ""
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
 def main():
     """メイン関数"""
     import gc
