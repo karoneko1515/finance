@@ -1476,10 +1476,11 @@ class LifePlanCalculator:
         monthly_pension = pension.get("monthly_amount", 180000)
         spouse_pension = 100000  # 配偶者の年金（想定）
 
-        # 退職後の生活費（月額）
-        monthly_living_cost = 250000  # 基本生活費
-        monthly_medical = 20000  # 医療費（年齢とともに増加）
-        monthly_leisure = 50000  # 余暇・娯楽
+        # 退職後の生活費（月額）- 豪遊モード 💎
+        monthly_living_cost = 1000000  # 基本生活費（月100万円）
+        monthly_medical = 50000  # 医療費・健康管理
+        monthly_leisure = 500000  # 余暇・娯楽・旅行（月50万円）
+        annual_luxury_expenses = 3000000  # 年間特別支出（高級品・リフォームなど）
 
         for age in range(65, 91):  # 65-90歳
             years_from_retirement = age - 65
@@ -1512,7 +1513,10 @@ class LifePlanCalculator:
             property_tax = 150000  # 年15万円
             maintenance = 200000 * ((1 + inflation_rate) ** years_from_retirement)  # 年20万円から増加
 
-            annual_expenses = annual_living + property_tax + maintenance
+            # 豪遊特別支出（インフレ調整あり）
+            adjusted_luxury = annual_luxury_expenses * ((1 + inflation_rate) ** years_from_retirement)
+
+            annual_expenses = annual_living + property_tax + maintenance + adjusted_luxury
 
             # 年間収支
             annual_cashflow = total_income - annual_expenses
