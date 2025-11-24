@@ -721,7 +721,32 @@ class LifePlanCalculator:
                 yearly_investment += month_data["investment"]["total"]
                 yearly_cashflow += month_data["cashflow"]["monthly"]
 
-                # 資産更新
+                # === ステップ1: 全資産に月次運用益を適用（投資の有無に関わらず毎月実行） ===
+                nisa_monthly_return = self.investment_settings["nisa"]["expected_return"] / 12
+                taxable_monthly_return = self.investment_settings["taxable_account"]["expected_return"] / 12
+                education_monthly_return = self.investment_settings["education_fund"]["expected_return"] / 12
+
+                # 積立NISA残高に運用益を適用
+                if assets["nisa_tsumitate_balance"] > 0:
+                    assets["nisa_tsumitate_balance"] *= (1 + nisa_monthly_return)
+
+                # NISA成長投資枠残高に運用益を適用
+                if assets["nisa_growth_balance"] > 0:
+                    assets["nisa_growth_balance"] *= (1 + nisa_monthly_return)
+
+                # 特定口座残高に運用益を適用
+                if assets["taxable_account_balance"] > 0:
+                    assets["taxable_account_balance"] *= (1 + taxable_monthly_return)
+
+                # 教育資金残高に運用益を適用
+                if assets["education_fund_balance"] > 0:
+                    assets["education_fund_balance"] *= (1 + education_monthly_return)
+
+                # 結婚資金残高に運用益を適用
+                if assets["marriage_fund_balance"] > 0:
+                    assets["marriage_fund_balance"] *= (1 + education_monthly_return)
+
+                # === ステップ2: 新規投資を処理 ===
                 # NISA積立
                 nisa_contribution = month_data["investment"].get("nisa_tsumitate", 0)
                 if nisa_contribution > 0:
@@ -729,13 +754,15 @@ class LifePlanCalculator:
                         contribution = min(nisa_contribution,
                                          self.investment_settings["nisa"]["tsumitate_limit"] - nisa_tsumitate_total_contribution)
                         nisa_tsumitate_total_contribution += contribution
-                        # 月次で運用益を加算（簡易計算）
-                        monthly_return = self.investment_settings["nisa"]["expected_return"] / 12
-                        assets["nisa_tsumitate_balance"] = (assets["nisa_tsumitate_balance"] + contribution) * (1 + monthly_return)
+                        assets["nisa_tsumitate_balance"] += contribution
+
+                        # 残りは特定口座へ
+                        overflow = nisa_contribution - contribution
+                        if overflow > 0:
+                            assets["taxable_account_balance"] += overflow
                     else:
                         # つみたてNISA満額後は特定口座に投資
-                        monthly_return = self.investment_settings["taxable_account"]["expected_return"] / 12
-                        assets["taxable_account_balance"] = (assets["taxable_account_balance"] + nisa_contribution) * (1 + monthly_return)
+                        assets["taxable_account_balance"] += nisa_contribution
 
                 # NISA成長投資枠（ボーナス月のみ）
                 nisa_growth_contribution = month_data["investment"].get("nisa_growth", 0)
@@ -744,12 +771,15 @@ class LifePlanCalculator:
                         contribution = min(nisa_growth_contribution,
                                          self.investment_settings["nisa"]["growth_limit"] - nisa_growth_total_contribution)
                         nisa_growth_total_contribution += contribution
-                        monthly_return = self.investment_settings["nisa"]["expected_return"] / 12
-                        assets["nisa_growth_balance"] = (assets["nisa_growth_balance"] + contribution) * (1 + monthly_return)
+                        assets["nisa_growth_balance"] += contribution
+
+                        # 残りは特定口座へ
+                        overflow = nisa_growth_contribution - contribution
+                        if overflow > 0:
+                            assets["taxable_account_balance"] += overflow
                     else:
                         # NISA満額後は特定口座に投資
-                        monthly_return = self.investment_settings["taxable_account"]["expected_return"] / 12
-                        assets["taxable_account_balance"] = (assets["taxable_account_balance"] + nisa_growth_contribution) * (1 + monthly_return)
+                        assets["taxable_account_balance"] += nisa_growth_contribution
 
                 # 自社株購入
                 company_stock_contribution = month_data["investment"].get("company_stock", 0)
@@ -762,19 +792,16 @@ class LifePlanCalculator:
                 # 教育資金積立
                 education_contribution = month_data["investment"].get("education_fund", 0)
                 if education_contribution > 0:
-                    monthly_return = self.investment_settings["education_fund"]["expected_return"] / 12
-                    assets["education_fund_balance"] = (assets["education_fund_balance"] + education_contribution) * (1 + monthly_return)
+                    assets["education_fund_balance"] += education_contribution
 
                 # 結婚資金積立
                 marriage_contribution = month_data["investment"].get("marriage_fund", 0)
                 if marriage_contribution > 0:
-                    monthly_return = self.investment_settings["education_fund"]["expected_return"] / 12
-                    assets["marriage_fund_balance"] = (assets["marriage_fund_balance"] + marriage_contribution) * (1 + monthly_return)
+                    assets["marriage_fund_balance"] += marriage_contribution
 
                 # 子供準備資金積立（28-29歳）- 現金として積立
                 child_prep_contribution = month_data["investment"].get("child_preparation_fund", 0)
                 if child_prep_contribution > 0:
-                    # 子供準備資金は現金として積み立て
                     assets["cash_balance"] += child_prep_contribution
 
                 # 緊急予備費積立 - 現金として積立
@@ -785,8 +812,7 @@ class LifePlanCalculator:
                 # 高配当株投資（特定口座）
                 high_dividend_contribution = month_data["investment"].get("high_dividend_stocks", 0)
                 if high_dividend_contribution > 0:
-                    monthly_return = self.investment_settings["taxable_account"]["expected_return"] / 12
-                    assets["taxable_account_balance"] = (assets["taxable_account_balance"] + high_dividend_contribution) * (1 + monthly_return)
+                    assets["taxable_account_balance"] += high_dividend_contribution
 
                 # カスタムイベント用の積立
                 event_savings = self.get_custom_event_saving_for_age(age)
@@ -1737,11 +1763,16 @@ class LifePlanCalculator:
             # 最終資産を記録
             final_assets = yearly_data[-1]["assets_end"] if yearly_data else 0
 
+            # パーセンタイル推移用に年齢と資産のみ記録（メモリ効率化）
+            yearly_progression = [
+                {"age": y["age"], "assets_end": y["assets_end"]}
+                for y in yearly_data
+            ]
+
             all_results.append({
                 "simulation_id": sim_idx + 1,
                 "final_assets": final_assets,
-                "returns": annual_returns,
-                "yearly_data": yearly_data
+                "yearly_progression": yearly_progression  # 詳細データではなく必要最小限のみ
             })
 
             # 進捗コールバック
@@ -1857,7 +1888,28 @@ class LifePlanCalculator:
                 yearly_investment += month_data["investment"]["total"]
                 yearly_cashflow += month_data["cashflow"]["monthly"]
 
-                # 資産更新（変動リターンを適用）
+                # === ステップ1: 全資産に月次運用益を適用（変動リターン） ===
+                # 積立NISA残高に運用益を適用
+                if assets["nisa_tsumitate_balance"] > 0:
+                    assets["nisa_tsumitate_balance"] *= (1 + monthly_return)
+
+                # NISA成長投資枠残高に運用益を適用
+                if assets["nisa_growth_balance"] > 0:
+                    assets["nisa_growth_balance"] *= (1 + monthly_return)
+
+                # 特定口座残高に運用益を適用
+                if assets["taxable_account_balance"] > 0:
+                    assets["taxable_account_balance"] *= (1 + monthly_return)
+
+                # 教育資金残高に運用益を適用
+                if assets["education_fund_balance"] > 0:
+                    assets["education_fund_balance"] *= (1 + monthly_return)
+
+                # 結婚資金残高に運用益を適用
+                if assets["marriage_fund_balance"] > 0:
+                    assets["marriage_fund_balance"] *= (1 + monthly_return)
+
+                # === ステップ2: 新規投資を処理 ===
                 # NISA積立
                 nisa_contribution = month_data["investment"].get("nisa_tsumitate", 0)
                 if nisa_contribution > 0:
@@ -1865,10 +1917,15 @@ class LifePlanCalculator:
                         contribution = min(nisa_contribution,
                                          self.investment_settings["nisa"]["tsumitate_limit"] - nisa_tsumitate_total_contribution)
                         nisa_tsumitate_total_contribution += contribution
-                        assets["nisa_tsumitate_balance"] = (assets["nisa_tsumitate_balance"] + contribution) * (1 + monthly_return)
+                        assets["nisa_tsumitate_balance"] += contribution
+
+                        # 残りは特定口座へ
+                        overflow = nisa_contribution - contribution
+                        if overflow > 0:
+                            assets["taxable_account_balance"] += overflow
                     else:
                         # つみたてNISA満額後は特定口座に投資
-                        assets["taxable_account_balance"] = (assets["taxable_account_balance"] + nisa_contribution) * (1 + monthly_return)
+                        assets["taxable_account_balance"] += nisa_contribution
 
                 # NISA成長投資枠（ボーナス月のみ）
                 nisa_growth_contribution = month_data["investment"].get("nisa_growth", 0)
@@ -1877,10 +1934,15 @@ class LifePlanCalculator:
                         contribution = min(nisa_growth_contribution,
                                          self.investment_settings["nisa"]["growth_limit"] - nisa_growth_total_contribution)
                         nisa_growth_total_contribution += contribution
-                        assets["nisa_growth_balance"] = (assets["nisa_growth_balance"] + contribution) * (1 + monthly_return)
+                        assets["nisa_growth_balance"] += contribution
+
+                        # 残りは特定口座へ
+                        overflow = nisa_growth_contribution - contribution
+                        if overflow > 0:
+                            assets["taxable_account_balance"] += overflow
                     else:
                         # NISA満額後は特定口座に投資
-                        assets["taxable_account_balance"] = (assets["taxable_account_balance"] + nisa_growth_contribution) * (1 + monthly_return)
+                        assets["taxable_account_balance"] += nisa_growth_contribution
 
                 # 自社株購入
                 company_stock_contribution = month_data["investment"].get("company_stock", 0)
@@ -1892,12 +1954,12 @@ class LifePlanCalculator:
                 # 教育資金積立
                 education_contribution = month_data["investment"].get("education_fund", 0)
                 if education_contribution > 0:
-                    assets["education_fund_balance"] = (assets["education_fund_balance"] + education_contribution) * (1 + monthly_return)
+                    assets["education_fund_balance"] += education_contribution
 
                 # 結婚資金積立
                 marriage_contribution = month_data["investment"].get("marriage_fund", 0)
                 if marriage_contribution > 0:
-                    assets["marriage_fund_balance"] = (assets["marriage_fund_balance"] + marriage_contribution) * (1 + monthly_return)
+                    assets["marriage_fund_balance"] += marriage_contribution
 
                 # 子供準備資金積立 - 現金として積立
                 child_prep_contribution = month_data["investment"].get("child_preparation_fund", 0)
@@ -1912,7 +1974,7 @@ class LifePlanCalculator:
                 # 高配当株投資（特定口座）
                 high_dividend_contribution = month_data["investment"].get("high_dividend_stocks", 0)
                 if high_dividend_contribution > 0:
-                    assets["taxable_account_balance"] = (assets["taxable_account_balance"] + high_dividend_contribution) * (1 + monthly_return)
+                    assets["taxable_account_balance"] += high_dividend_contribution
 
                 # 現金残高更新
                 assets["cash_balance"] += month_data["cashflow"]["monthly"]
@@ -2088,18 +2150,18 @@ class LifePlanCalculator:
         Returns:
             dict: パーセンタイルごとの年次推移
         """
-        if not all_results or not all_results[0]["yearly_data"]:
+        if not all_results or not all_results[0].get("yearly_progression"):
             return {}
 
-        num_years = len(all_results[0]["yearly_data"])
+        num_years = len(all_results[0]["yearly_progression"])
         progression = {p: [] for p in percentiles}
 
         # 各年について全シミュレーションの資産値を収集
         for year_idx in range(num_years):
             year_assets = []
             for result in all_results:
-                if year_idx < len(result["yearly_data"]):
-                    year_assets.append(result["yearly_data"][year_idx]["assets_end"])
+                if year_idx < len(result["yearly_progression"]):
+                    year_assets.append(result["yearly_progression"][year_idx]["assets_end"])
 
             year_assets.sort()
 
