@@ -129,7 +129,17 @@ class LifePlanCalculator:
                 break
 
         salary_data = self.income_progression[str(applicable_age)]
-        return salary_data["base_salary"], salary_data["bonus_months"]
+        base_salary = salary_data["base_salary"]
+        bonus_months = salary_data["bonus_months"]
+
+        # 社会人一年目（start_age）の場合は特別なボーナス月数を適用
+        start_age = self.basic_info.get("start_age", 25)
+        first_year_bonus = self.basic_info.get("first_year_bonus_months", None)
+
+        if age == start_age and first_year_bonus is not None:
+            bonus_months = first_year_bonus
+
+        return base_salary, bonus_months
 
     def get_spouse_income_for_age(self, age):
         """

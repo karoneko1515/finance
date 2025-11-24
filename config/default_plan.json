@@ -8,7 +8,8 @@
     "marriage_age": 28,
     "first_child_birth_age": 30,
     "second_child_birth_age": 32,
-    "pet_start_age": 30
+    "pet_start_age": 30,
+    "first_year_bonus_months": 3.0
   },
   "life_events": {
     "marriage": {
