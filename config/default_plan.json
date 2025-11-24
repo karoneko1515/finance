@@ -111,13 +111,15 @@
       "monthly_investment": {
         "nisa_tsumitate": 100000,
         "company_stock": 21000,
-        "marriage_fund": 80000,
+        "marriage_fund": 50000,
+        "child_preparation_fund": 30000,
         "emergency_fund": 20000
       },
       "bonus_allocation": {
-        "marriage_fund": 600000,
-        "travel": 300000,
-        "reserve": 500000
+        "marriage_fund": 300000,
+        "child_preparation_fund": 150000,
+        "travel": 150000,
+        "reserve": 200000
       }
     },
     "phase2": {
@@ -134,14 +136,14 @@
       "monthly_investment": {
         "nisa_tsumitate": 100000,
         "company_stock": 21000,
-        "child_preparation_fund": 100000
+        "child_preparation_fund": 30000
       },
       "bonus_allocation": {
-        "nisa_growth": 400000,
-        "education_fund": 600000,
-        "travel": 400000,
-        "home_appliances": 300000,
-        "reserve": 600000
+        "nisa_growth": 200000,
+        "education_fund": 300000,
+        "travel": 200000,
+        "home_appliances": 100000,
+        "reserve": 200000
       }
     },
     "phase3": {

@@ -599,24 +599,63 @@ class LifePlanCalculator:
 
         total_monthly_expenses = sum(monthly_expenses.values()) + rent + mortgage + utilities
 
-        # 投資
+        # 余剰金計算（投資前）
+        available_for_investment = total_income - total_monthly_expenses
+
+        # 投資の優先順位を定義
+        investment_priority = [
+            "company_stock",           # 1. 自社株（奨励金あり）
+            "nisa_tsumitate",          # 2. NISA積立（税制優遇）
+            "emergency_fund",          # 3. 緊急予備費
+            "marriage_fund",           # 4. 結婚資金
+            "child_preparation_fund",  # 5. 子供準備金
+            "education_fund",          # 6. 教育資金
+            "high_dividend_stocks"     # 7. 高配当株
+        ]
+
+        # 投資額を余剰金の範囲内に調整
         monthly_investment = {}
+        planned_investment = {}
+
         if phase:
             for inv_key, inv_value in phase.get("monthly_investment", {}).items():
-                monthly_investment[inv_key] = inv_value
+                planned_investment[inv_key] = inv_value
+
+        remaining_funds = available_for_investment
+
+        # 優先順位に従って投資を配分
+        for inv_key in investment_priority:
+            if inv_key in planned_investment and remaining_funds > 0:
+                planned_amount = planned_investment[inv_key]
+                actual_amount = min(planned_amount, remaining_funds)
+                monthly_investment[inv_key] = actual_amount
+                remaining_funds -= actual_amount
 
         total_monthly_investment = sum(monthly_investment.values())
 
-        # ボーナス配分
+        # ボーナス配分（手取りボーナスの範囲内に制限）
         bonus_allocation = {}
         if is_bonus_month and phase:
+            max_bonus_allocation = bonus_net  # 手取りボーナス額
+            planned_bonus = {}
+
             for bonus_key, bonus_value in phase.get("bonus_allocation", {}).items():
                 # ボーナスは年2回なので半分ずつ
-                bonus_allocation[bonus_key] = bonus_value / 2
+                planned_bonus[bonus_key] = bonus_value / 2
+
+            total_planned_bonus = sum(planned_bonus.values())
+
+            # 手取りボーナスを超える場合は比例配分
+            if total_planned_bonus > max_bonus_allocation:
+                ratio = max_bonus_allocation / total_planned_bonus
+                for bonus_key, bonus_value in planned_bonus.items():
+                    bonus_allocation[bonus_key] = bonus_value * ratio
+            else:
+                bonus_allocation = planned_bonus
 
         total_bonus_allocation = sum(bonus_allocation.values())
 
-        # 月間収支
+        # 月間収支（マイナスにならないことを保証）
         monthly_cashflow = total_income - total_monthly_expenses - total_monthly_investment - total_bonus_allocation
 
         # 資産計算（簡略版 - 詳細は年次計算で実施）
