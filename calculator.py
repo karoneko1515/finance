@@ -1437,6 +1437,94 @@ class LifePlanCalculator:
             "dividend_history": dividend_history
         }
 
+    def get_monthly_breakdown_detail(self, age):
+        """
+        特定年齢のボーナス月・非ボーナス月の詳細内訳を取得
+
+        Args:
+            age: 年齢
+
+        Returns:
+            dict: ボーナス月・非ボーナス月の詳細内訳
+        """
+        # 仮の資産状態で月次データを生成
+        dummy_assets = {
+            "nisa_tsumitate_balance": 0,
+            "nisa_growth_balance": 0,
+            "company_stock_balance": 0,
+            "company_stock_shares": 0,
+            "education_fund_balance": 0,
+            "marriage_fund_balance": 0,
+            "taxable_account_balance": 0,
+            "cash_balance": 0,
+            "total": 0
+        }
+
+        # ボーナスがない月（1月）とボーナス月（6月）のデータを生成
+        regular_month = self.calculate_monthly_data(age, 1, dummy_assets)
+        bonus_month = self.calculate_monthly_data(age, 6, dummy_assets)
+
+        # ボーナスがない月の詳細
+        regular_breakdown = {
+            "income": {
+                "monthly_salary_net": regular_month["income"].get("salary_net", 0),
+                "bonus_net": 0,
+                "spouse_income": regular_month["income"].get("spouse", 0),
+                "total": regular_month["income"]["total"]
+            },
+            "expenses": {
+                "housing": regular_month["expenses"].get("rent", 0) + regular_month["expenses"].get("mortgage", 0) + regular_month["expenses"].get("utilities", 0),
+                "living": sum(v for k, v in regular_month["expenses"].items() if k not in ["rent", "mortgage", "utilities", "total"]),
+                "total": regular_month["expenses"]["total"]
+            },
+            "investment": {
+                "items": {k: v for k, v in regular_month["investment"].items() if k != "total"},
+                "total": regular_month["investment"]["total"]
+            },
+            "cashflow": regular_month["cashflow"]["monthly"]
+        }
+
+        # ボーナス月の詳細
+        bonus_breakdown = {
+            "income": {
+                "monthly_salary_net": bonus_month["income"].get("salary_net", 0),
+                "bonus_net": bonus_month["income"].get("bonus", 0),
+                "spouse_income": bonus_month["income"].get("spouse", 0),
+                "total": bonus_month["income"]["total"]
+            },
+            "expenses": {
+                "housing": bonus_month["expenses"].get("rent", 0) + bonus_month["expenses"].get("mortgage", 0) + bonus_month["expenses"].get("utilities", 0),
+                "living": sum(v for k, v in bonus_month["expenses"].items() if k not in ["rent", "mortgage", "utilities", "total"]),
+                "total": bonus_month["expenses"]["total"]
+            },
+            "investment": {
+                "items": {k: v for k, v in bonus_month["investment"].items() if k != "total"},
+                "bonus_allocation": {k: v for k, v in bonus_month["investment"].items() if k.startswith("bonus_")},
+                "total": bonus_month["investment"]["total"]
+            },
+            "cashflow": bonus_month["cashflow"]["monthly"]
+        }
+
+        # 給与情報
+        base_salary, bonus_months = self.get_salary_for_age(age)
+        annual_salary = base_salary * (12 + bonus_months)
+        housing_allowance_annual = self.get_housing_allowance_for_age(age) * 12
+        net_annual = self.calculate_takehome(annual_salary, housing_allowance_annual)
+
+        return {
+            "age": age,
+            "salary_info": {
+                "base_salary": base_salary,
+                "bonus_months": bonus_months,
+                "annual_gross": annual_salary,
+                "annual_net": net_annual,
+                "monthly_average_net": net_annual / 12
+            },
+            "regular_month": regular_breakdown,
+            "bonus_month": bonus_breakdown,
+            "note": "通常月は10ヶ月、ボーナス月は2ヶ月（6月・12月）"
+        }
+
     def simulate_retirement(self, start_assets=None):
         """
         退職後シミュレーション（65-90歳）

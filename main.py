@@ -129,6 +129,34 @@ def get_dividend_summary():
 
 
 @eel.expose
+def get_monthly_breakdown_detail(age):
+    """
+    特定年齢のボーナス月・非ボーナス月の詳細内訳を取得
+
+    Args:
+        age: 年齢
+
+    Returns:
+        dict: ボーナス月・非ボーナス月の詳細内訳
+    """
+    try:
+        # シミュレーションが実行されていない場合は先に実行
+        if not calculator.monthly_data:
+            calculator.simulate_30_years()
+
+        detail = calculator.get_monthly_breakdown_detail(age)
+        return {
+            "success": True,
+            "data": detail
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
 def get_plan_data():
     """
     現在のプラン設定を取得
