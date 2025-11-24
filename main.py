@@ -635,6 +635,294 @@ def calculate_pension_deferral_analysis(start_ages):
         }
 
 
+@eel.expose
+def get_custom_events():
+    """
+    カスタム大きな買い物イベント一覧を取得
+
+    Returns:
+        dict: イベント一覧
+    """
+    try:
+        events = calculator.get_custom_events()
+        return {
+            "success": True,
+            "data": events
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def add_custom_event(event_data):
+    """
+    新しいカスタムイベントを追加
+
+    Args:
+        event_data: イベント情報（dict）
+
+    Returns:
+        dict: 追加結果
+    """
+    try:
+        plan_data = data_loader.get_all_data()
+
+        if "custom_large_purchase_events" not in plan_data:
+            plan_data["custom_large_purchase_events"] = {
+                "enabled": True,
+                "events": [],
+                "categories": {
+                    "vehicle": "車両",
+                    "travel": "旅行",
+                    "home_improvement": "住宅改修",
+                    "hobby": "趣味",
+                    "education": "教育",
+                    "other": "その他"
+                }
+            }
+
+        # イベントIDを自動生成
+        import uuid
+        event_data["id"] = str(uuid.uuid4())[:8]
+
+        # デフォルト値を設定
+        if "enabled" not in event_data:
+            event_data["enabled"] = True
+        if "auto_saving" not in event_data:
+            event_data["auto_saving"] = {
+                "enabled": False,
+                "start_age": max(25, event_data["age"] - 5),
+                "monthly_amount": 0
+            }
+
+        plan_data["custom_large_purchase_events"]["events"].append(event_data)
+
+        # プラン保存
+        data_loader.save_user_plan(plan_data)
+
+        # 計算機を再初期化
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+
+        return {
+            "success": True,
+            "message": "イベントを追加しました",
+            "event_id": event_data["id"]
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def update_custom_event(event_id, event_data):
+    """
+    既存のカスタムイベントを更新
+
+    Args:
+        event_id: イベントID
+        event_data: 更新するイベント情報（dict）
+
+    Returns:
+        dict: 更新結果
+    """
+    try:
+        plan_data = data_loader.get_all_data()
+
+        if "custom_large_purchase_events" not in plan_data:
+            return {
+                "success": False,
+                "error": "カスタムイベント設定が見つかりません"
+            }
+
+        events = plan_data["custom_large_purchase_events"]["events"]
+        event_found = False
+
+        for i, event in enumerate(events):
+            if event["id"] == event_id:
+                # イベントデータを更新（IDは保持）
+                event_data["id"] = event_id
+                events[i] = event_data
+                event_found = True
+                break
+
+        if not event_found:
+            return {
+                "success": False,
+                "error": "指定されたイベントが見つかりません"
+            }
+
+        # プラン保存
+        data_loader.save_user_plan(plan_data)
+
+        # 計算機を再初期化
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+
+        return {
+            "success": True,
+            "message": "イベントを更新しました"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def delete_custom_event(event_id):
+    """
+    カスタムイベントを削除
+
+    Args:
+        event_id: イベントID
+
+    Returns:
+        dict: 削除結果
+    """
+    try:
+        plan_data = data_loader.get_all_data()
+
+        if "custom_large_purchase_events" not in plan_data:
+            return {
+                "success": False,
+                "error": "カスタムイベント設定が見つかりません"
+            }
+
+        events = plan_data["custom_large_purchase_events"]["events"]
+        original_count = len(events)
+
+        # イベントを削除
+        plan_data["custom_large_purchase_events"]["events"] = [
+            event for event in events if event["id"] != event_id
+        ]
+
+        if len(plan_data["custom_large_purchase_events"]["events"]) == original_count:
+            return {
+                "success": False,
+                "error": "指定されたイベントが見つかりません"
+            }
+
+        # プラン保存
+        data_loader.save_user_plan(plan_data)
+
+        # 計算機を再初期化
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+
+        return {
+            "success": True,
+            "message": "イベントを削除しました"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def toggle_custom_event(event_id, enabled):
+    """
+    カスタムイベントの有効/無効を切り替え
+
+    Args:
+        event_id: イベントID
+        enabled: 有効フラグ（True/False）
+
+    Returns:
+        dict: 切り替え結果
+    """
+    try:
+        plan_data = data_loader.get_all_data()
+
+        if "custom_large_purchase_events" not in plan_data:
+            return {
+                "success": False,
+                "error": "カスタムイベント設定が見つかりません"
+            }
+
+        events = plan_data["custom_large_purchase_events"]["events"]
+        event_found = False
+
+        for event in events:
+            if event["id"] == event_id:
+                event["enabled"] = enabled
+                event_found = True
+                break
+
+        if not event_found:
+            return {
+                "success": False,
+                "error": "指定されたイベントが見つかりません"
+            }
+
+        # プラン保存
+        data_loader.save_user_plan(plan_data)
+
+        # 計算機を再初期化
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+
+        return {
+            "success": True,
+            "message": f"イベントを{'有効' if enabled else '無効'}にしました"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def simulate_with_custom_events(event_states):
+    """
+    特定のカスタムイベントパターンでシミュレーション実行
+
+    Args:
+        event_states: イベントID -> 有効フラグ のマッピング（dict）
+
+    Returns:
+        dict: シミュレーション結果
+    """
+    try:
+        # 一時的なDataLoaderとCalculatorを作成
+        temp_loader = DataLoader()
+        plan_data = temp_loader.get_all_data()
+
+        if "custom_large_purchase_events" in plan_data:
+            # イベントの有効/無効を設定
+            for event in plan_data["custom_large_purchase_events"]["events"]:
+                if event["id"] in event_states:
+                    event["enabled"] = event_states[event["id"]]
+
+        # 一時的な計算機でシミュレーション実行
+        temp_loader.plan_data = plan_data
+        temp_calc = LifePlanCalculator(temp_loader)
+        monthly, yearly = temp_calc.simulate_30_years()
+
+        return {
+            "success": True,
+            "data": {
+                "yearly_data": yearly,
+                "final_assets": yearly[-1]["assets_end"] if yearly else 0,
+                "custom_event_funds": yearly[-1].get("custom_event_funds", {}) if yearly else {}
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
 def main():
     """メイン関数"""
     import gc

@@ -461,6 +461,71 @@ class LifePlanCalculator:
 
         return {"lump_sum_net": 0, "corporate_pension": 0}
 
+    def get_custom_events(self):
+        """
+        カスタム大きな買い物イベント一覧を取得
+
+        Returns:
+            list: イベントのリスト
+        """
+        custom_events = self.loader.plan_data.get("custom_large_purchase_events", {})
+
+        if not custom_events.get("enabled", False):
+            return []
+
+        return custom_events.get("events", [])
+
+    def get_active_custom_events(self):
+        """
+        有効なカスタムイベントのみ取得
+
+        Returns:
+            list: 有効なイベントのリスト
+        """
+        all_events = self.get_custom_events()
+        return [event for event in all_events if event.get("enabled", False)]
+
+    def get_custom_events_for_age(self, age):
+        """
+        特定年齢で発生するイベントを取得
+
+        Args:
+            age: 年齢
+
+        Returns:
+            list: その年齢で発生するイベントのリスト
+        """
+        active_events = self.get_active_custom_events()
+        return [event for event in active_events if event.get("age") == age]
+
+    def get_custom_event_saving_for_age(self, age):
+        """
+        特定年齢での各イベント用積立額を取得
+
+        Args:
+            age: 年齢
+
+        Returns:
+            dict: {event_id: monthly_amount} の辞書
+        """
+        active_events = self.get_active_custom_events()
+        savings = {}
+
+        for event in active_events:
+            auto_saving = event.get("auto_saving", {})
+            if not auto_saving.get("enabled", False):
+                continue
+
+            start_age = auto_saving.get("start_age", event["age"] - 5)
+            end_age = event.get("age")
+
+            # 積立期間中なら
+            if start_age <= age < end_age:
+                monthly_amount = auto_saving.get("monthly_amount", 0)
+                savings[event["id"]] = monthly_amount
+
+        return savings
+
     def calculate_monthly_data(self, age, month, assets_previous_month):
         """
         月次データを計算
@@ -611,6 +676,12 @@ class LifePlanCalculator:
             "total": 0
         }
 
+        # カスタムイベント用の資産枠を動的に追加
+        active_events = self.get_active_custom_events()
+        for event in active_events:
+            fund_key = f"custom_event_{event['id']}_fund"
+            assets[fund_key] = 0
+
         nisa_tsumitate_total_contribution = 0
         nisa_growth_total_contribution = 0
 
@@ -707,8 +778,20 @@ class LifePlanCalculator:
                     monthly_return = self.investment_settings["taxable_account"]["expected_return"] / 12
                     assets["taxable_account_balance"] = (assets["taxable_account_balance"] + high_dividend_contribution) * (1 + monthly_return)
 
+                # カスタムイベント用の積立
+                event_savings = self.get_custom_event_saving_for_age(age)
+                for event_id, monthly_amount in event_savings.items():
+                    fund_key = f"custom_event_{event_id}_fund"
+                    if fund_key in assets:
+                        # 現金から積立（利息なし）
+                        assets[fund_key] += monthly_amount
+                        # 積立額は支出として扱う（キャッシュフローから差し引かれる）
+
                 # 現金残高更新
                 assets["cash_balance"] += month_data["cashflow"]["monthly"]
+                # カスタムイベント積立分を現金から差し引く
+                total_event_saving = sum(event_savings.values())
+                assets["cash_balance"] -= total_event_saving
 
             # 年末処理
             # イレギュラー支出を記録するリスト
@@ -766,6 +849,53 @@ class LifePlanCalculator:
                 inflation_rate = self.inflation_settings.get("education_rate", 0)
                 adjusted_cost = self.apply_inflation(annual_education_cost, age - start_age, inflation_rate)
                 assets["cash_balance"] -= adjusted_cost
+
+            # カスタムイベントの購入処理
+            events_this_year = self.get_custom_events_for_age(age)
+            for event in events_this_year:
+                event_id = event["id"]
+                event_amount = event["amount"]
+                fund_key = f"custom_event_{event_id}_fund"
+
+                payment_sources = []
+
+                # 専用貯金の残高を確認
+                fund_balance = assets.get(fund_key, 0)
+
+                if fund_balance >= event_amount:
+                    # 専用資金で全額支払い
+                    assets[fund_key] -= event_amount
+                    payment_sources.append({
+                        "source": f"{event['name']}用貯金",
+                        "amount": event_amount
+                    })
+                else:
+                    # 不足分は現金から補填
+                    shortfall = event_amount - fund_balance
+
+                    if fund_balance > 0:
+                        # 貯金を使い切る
+                        assets[fund_key] = 0
+                        payment_sources.append({
+                            "source": f"{event['name']}用貯金",
+                            "amount": fund_balance
+                        })
+
+                    # 不足分を現金から支払い
+                    assets["cash_balance"] -= shortfall
+                    payment_sources.append({
+                        "source": "現金",
+                        "amount": shortfall
+                    })
+
+                # イレギュラー支出として記録
+                irregular_expenses.append({
+                    "type": event["name"],
+                    "amount": event_amount,
+                    "payment_sources": payment_sources,
+                    "category": event.get("category", "other"),
+                    "description": event.get("description", "")
+                })
 
             # 自社株の株価更新
             stock_price = stock_price * (1 + stock_growth_rate)
@@ -967,13 +1097,29 @@ class LifePlanCalculator:
                 assets["cash_balance"] += retirement_pension
 
             # 総資産
+            total_custom_event_funds = sum(
+                assets.get(f"custom_event_{event['id']}_fund", 0)
+                for event in self.get_active_custom_events()
+            )
             assets["total"] = (assets["nisa_tsumitate_balance"] +
                              assets["nisa_growth_balance"] +
                              assets["company_stock_balance"] +
                              assets["education_fund_balance"] +
                              assets["marriage_fund_balance"] +
                              assets["taxable_account_balance"] +
-                             assets["cash_balance"])
+                             assets["cash_balance"] +
+                             total_custom_event_funds)
+
+            # カスタムイベント資金の記録
+            custom_event_funds = {}
+            for event in self.get_active_custom_events():
+                fund_key = f"custom_event_{event['id']}_fund"
+                custom_event_funds[event['id']] = {
+                    "name": event['name'],
+                    "balance": assets.get(fund_key, 0),
+                    "target_amount": event['amount'],
+                    "target_age": event['age']
+                }
 
             # 年次サマリー
             yearly_summary.append({
@@ -991,6 +1137,7 @@ class LifePlanCalculator:
                 "education_fund": assets["education_fund_balance"],
                 "taxable_account": assets["taxable_account_balance"],
                 "cash": assets["cash_balance"],
+                "custom_event_funds": custom_event_funds,
                 "education_cost_annual": adjusted_cost,
                 "dividend_total": annual_dividend_total,
                 "dividend_received": annual_dividend_received,

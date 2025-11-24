@@ -405,6 +405,64 @@
       "D": 0
     }
   },
+  "custom_large_purchase_events": {
+    "enabled": true,
+    "events": [
+      {
+        "id": "car_purchase_001",
+        "name": "車購入（新車）",
+        "age": 35,
+        "amount": 3000000,
+        "enabled": true,
+        "auto_saving": {
+          "enabled": true,
+          "start_age": 30,
+          "monthly_amount": 50000
+        },
+        "priority": 1,
+        "description": "ファミリーカー購入",
+        "category": "vehicle"
+      },
+      {
+        "id": "overseas_travel_001",
+        "name": "家族で海外旅行",
+        "age": 45,
+        "amount": 1000000,
+        "enabled": true,
+        "auto_saving": {
+          "enabled": true,
+          "start_age": 42,
+          "monthly_amount": 30000
+        },
+        "priority": 2,
+        "description": "ヨーロッパ2週間旅行",
+        "category": "travel"
+      },
+      {
+        "id": "kitchen_reform_001",
+        "name": "キッチンリフォーム",
+        "age": 55,
+        "amount": 5000000,
+        "enabled": false,
+        "auto_saving": {
+          "enabled": true,
+          "start_age": 50,
+          "monthly_amount": 100000
+        },
+        "priority": 3,
+        "description": "システムキッチン全面改装",
+        "category": "home_improvement"
+      }
+    ],
+    "categories": {
+      "vehicle": "車両",
+      "travel": "旅行",
+      "home_improvement": "住宅改修",
+      "hobby": "趣味",
+      "education": "教育",
+      "other": "その他"
+    }
+  },
   "scenario_settings": {
     "child_education": ["私立理系", "国公立", "私立文系"],
     "investment_returns": [0.03, 0.05, 0.07],
