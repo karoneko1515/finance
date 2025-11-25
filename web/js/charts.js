@@ -741,6 +741,18 @@ function renderAssetsPieCharts(assetsData) {
         startLabels.push('教育資金');
         startValues.push(assetsStart.education_fund);
     }
+    if (assetsStart.marriage_fund > 0) {
+        startLabels.push('結婚資金');
+        startValues.push(assetsStart.marriage_fund);
+    }
+    if (assetsStart.child_preparation_fund > 0) {
+        startLabels.push('子供準備金');
+        startValues.push(assetsStart.child_preparation_fund);
+    }
+    if (assetsStart.emergency_fund > 0) {
+        startLabels.push('緊急予備費');
+        startValues.push(assetsStart.emergency_fund);
+    }
     if (assetsStart.cash > 0) {
         startLabels.push('現金・預金');
         startValues.push(assetsStart.cash);
@@ -799,6 +811,18 @@ function renderAssetsPieCharts(assetsData) {
     if (assetsEnd.education_fund > 0) {
         endLabels.push('教育資金');
         endValues.push(assetsEnd.education_fund);
+    }
+    if (assetsEnd.marriage_fund > 0) {
+        endLabels.push('結婚資金');
+        endValues.push(assetsEnd.marriage_fund);
+    }
+    if (assetsEnd.child_preparation_fund > 0) {
+        endLabels.push('子供準備金');
+        endValues.push(assetsEnd.child_preparation_fund);
+    }
+    if (assetsEnd.emergency_fund > 0) {
+        endLabels.push('緊急予備費');
+        endValues.push(assetsEnd.emergency_fund);
     }
     if (assetsEnd.cash > 0) {
         endLabels.push('現金・預金');

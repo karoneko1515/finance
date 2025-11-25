@@ -599,6 +599,57 @@ class LifePlanCalculator:
                 adjusted_expense = self.apply_inflation(expense_value, years_from_start, inflation_rate)
                 monthly_expenses[expense_key] = adjusted_expense
 
+        # 教育費の計算（月次化）
+        education_costs_config = self.loader.get_education_costs()
+        annual_education_cost = 0
+
+        # 第一子の教育費
+        first_child_age = age - self.basic_info["first_child_birth_age"]
+        if 0 <= first_child_age <= 22:
+            if 0 <= first_child_age <= 5:
+                annual_education_cost += education_costs_config.get("age_0_5", {}).get("childcare", 0)
+            elif 6 <= first_child_age <= 11:
+                annual_education_cost += education_costs_config.get("age_6_11", {}).get("school_fees", 0)
+                annual_education_cost += education_costs_config.get("age_6_11", {}).get("lessons", 0)
+            elif 12 <= first_child_age <= 14:
+                annual_education_cost += education_costs_config.get("age_12_14", {}).get("school_fees", 0)
+                annual_education_cost += education_costs_config.get("age_12_14", {}).get("cram_school", 0)
+            elif 15 <= first_child_age <= 17:
+                annual_education_cost += education_costs_config.get("age_15_17", {}).get("school_fees", 0)
+                annual_education_cost += education_costs_config.get("age_15_17", {}).get("cram_school", 0)
+                annual_education_cost -= self.loader.get_high_school_subsidy()
+            elif first_child_age == 18:
+                annual_education_cost += education_costs_config.get("age_18", {}).get("exam_fees", 0)
+
+        # 第二子の教育費
+        second_child_age = age - self.basic_info["second_child_birth_age"]
+        if 0 <= second_child_age <= 22:
+            if 0 <= second_child_age <= 5:
+                annual_education_cost += education_costs_config.get("age_0_5", {}).get("childcare", 0)
+            elif 6 <= second_child_age <= 11:
+                annual_education_cost += education_costs_config.get("age_6_11", {}).get("school_fees", 0)
+                annual_education_cost += education_costs_config.get("age_6_11", {}).get("lessons", 0)
+            elif 12 <= second_child_age <= 14:
+                annual_education_cost += education_costs_config.get("age_12_14", {}).get("school_fees", 0)
+                annual_education_cost += education_costs_config.get("age_12_14", {}).get("cram_school", 0)
+            elif 15 <= second_child_age <= 17:
+                annual_education_cost += education_costs_config.get("age_15_17", {}).get("school_fees", 0)
+                annual_education_cost += education_costs_config.get("age_15_17", {}).get("cram_school", 0)
+                annual_education_cost -= self.loader.get_high_school_subsidy()
+            elif second_child_age == 18:
+                annual_education_cost += education_costs_config.get("age_18", {}).get("exam_fees", 0)
+
+        # インフレ調整後、月次化
+        monthly_education_cost = 0
+        if annual_education_cost > 0:
+            inflation_rate = self.inflation_settings.get("education_rate", 0)
+            adjusted_annual_cost = self.apply_inflation(annual_education_cost, years_from_start, inflation_rate)
+            monthly_education_cost = adjusted_annual_cost / 12
+
+        # 月次教育費を支出に追加
+        if monthly_education_cost > 0:
+            monthly_expenses["education"] = monthly_education_cost
+
         total_monthly_expenses = sum(monthly_expenses.values()) + rent + mortgage + utilities
 
         # 余剰金計算（投資前） - ボーナスを除いた月給ベースの収支
@@ -624,10 +675,22 @@ class LifePlanCalculator:
             for inv_key, inv_value in phase.get("monthly_investment", {}).items():
                 planned_investment[inv_key] = inv_value
 
+        # カスタムイベント用の積立額も投資計画に含める
+        event_savings_planned = self.get_custom_event_saving_for_age(age)
+        for event_id, monthly_amount in event_savings_planned.items():
+            planned_investment[event_id] = monthly_amount
+
         remaining_funds = available_for_investment
 
         # 優先順位に従って投資を配分
-        for inv_key in investment_priority:
+        # カスタムイベント積立も優先順位に含める
+        extended_priority = list(investment_priority)
+        for event_id in event_savings_planned.keys():
+            if event_id not in extended_priority:
+                # カスタムイベント積立は結婚資金の次に優先（確定イベントとして）
+                extended_priority.insert(2, event_id)
+
+        for inv_key in extended_priority:
             if inv_key in planned_investment and remaining_funds > 0:
                 planned_amount = planned_investment[inv_key]
                 actual_amount = min(planned_amount, remaining_funds)
@@ -658,7 +721,7 @@ class LifePlanCalculator:
 
         total_bonus_allocation = sum(bonus_allocation.values())
 
-        # 月間収支（マイナスにならないことを保証）
+        # 月間収支（カスタムイベント積立は投資に含まれている）
         monthly_cashflow = total_income - total_monthly_expenses - total_monthly_investment - total_bonus_allocation
 
         # 資産計算（簡略版 - 詳細は年次計算で実施）
@@ -858,20 +921,16 @@ class LifePlanCalculator:
                 if high_dividend_contribution > 0:
                     assets["taxable_account_balance"] += high_dividend_contribution
 
-                # カスタムイベント用の積立
-                event_savings = self.get_custom_event_saving_for_age(age)
-                for event_id, monthly_amount in event_savings.items():
-                    fund_key = f"custom_event_{event_id}_fund"
-                    if fund_key in assets:
-                        # 現金から積立（利息なし）
-                        assets[fund_key] += monthly_amount
-                        # 積立額は支出として扱う（キャッシュフローから差し引かれる）
+                # カスタムイベント用の積立（月次データの投資に含まれている）
+                for inv_key in month_data["investment"].keys():
+                    if inv_key.startswith("car_purchase") or inv_key.startswith("overseas_travel"):
+                        # カスタムイベント積立の場合
+                        fund_key = f"custom_event_{inv_key}_fund"
+                        if fund_key in assets:
+                            assets[fund_key] += month_data["investment"][inv_key]
 
-                # 現金残高更新
+                # 現金残高更新（カスタムイベント積立は月間収支に含まれている）
                 assets["cash_balance"] += month_data["cashflow"]["monthly"]
-                # カスタムイベント積立分を現金から差し引く
-                total_event_saving = sum(event_savings.values())
-                assets["cash_balance"] -= total_event_saving
 
                 # 自社株の時価評価
                 assets["company_stock_balance"] = assets["company_stock_shares"] * stock_price
@@ -902,58 +961,9 @@ class LifePlanCalculator:
             # イレギュラー支出を記録するリスト
             irregular_expenses = []
 
-            # 教育費の計算（0-18歳）
-            education_costs = self.loader.get_education_costs()
-            annual_education_cost = 0
-
-            # 第一子の教育費
-            first_child_age = age - self.basic_info["first_child_birth_age"]
-            if 0 <= first_child_age <= 22:
-                if 0 <= first_child_age <= 5:
-                    # 保育園費用（年額）
-                    annual_education_cost += education_costs.get("age_0_5", {}).get("childcare", 0)
-                elif 6 <= first_child_age <= 11:
-                    # 小学校費用（年額）
-                    annual_education_cost += education_costs.get("age_6_11", {}).get("school_fees", 0)
-                    annual_education_cost += education_costs.get("age_6_11", {}).get("lessons", 0)
-                elif 12 <= first_child_age <= 14:
-                    # 中学校費用（年額）
-                    annual_education_cost += education_costs.get("age_12_14", {}).get("school_fees", 0)
-                    annual_education_cost += education_costs.get("age_12_14", {}).get("cram_school", 0)
-                elif 15 <= first_child_age <= 17:
-                    # 高校費用（年額）
-                    annual_education_cost += education_costs.get("age_15_17", {}).get("school_fees", 0)
-                    annual_education_cost += education_costs.get("age_15_17", {}).get("cram_school", 0)
-                    # 高校無償化補助を差し引き
-                    annual_education_cost -= self.loader.get_high_school_subsidy()
-                elif first_child_age == 18:
-                    # 受験費用（年額）
-                    annual_education_cost += education_costs.get("age_18", {}).get("exam_fees", 0)
-
-            # 第二子の教育費
-            second_child_age = age - self.basic_info["second_child_birth_age"]
-            if 0 <= second_child_age <= 22:
-                if 0 <= second_child_age <= 5:
-                    annual_education_cost += education_costs.get("age_0_5", {}).get("childcare", 0)
-                elif 6 <= second_child_age <= 11:
-                    annual_education_cost += education_costs.get("age_6_11", {}).get("school_fees", 0)
-                    annual_education_cost += education_costs.get("age_6_11", {}).get("lessons", 0)
-                elif 12 <= second_child_age <= 14:
-                    annual_education_cost += education_costs.get("age_12_14", {}).get("school_fees", 0)
-                    annual_education_cost += education_costs.get("age_12_14", {}).get("cram_school", 0)
-                elif 15 <= second_child_age <= 17:
-                    annual_education_cost += education_costs.get("age_15_17", {}).get("school_fees", 0)
-                    annual_education_cost += education_costs.get("age_15_17", {}).get("cram_school", 0)
-                    annual_education_cost -= self.loader.get_high_school_subsidy()
-                elif second_child_age == 18:
-                    annual_education_cost += education_costs.get("age_18", {}).get("exam_fees", 0)
-
-            # 教育費を現金から支払い（インフレ調整）
+            # 教育費は月次支出に含まれるため、年末処理では不要
+            # ただし大学費用用にadjusted_costを初期化
             adjusted_cost = 0
-            if annual_education_cost > 0:
-                inflation_rate = self.inflation_settings.get("education_rate", 0)
-                adjusted_cost = self.apply_inflation(annual_education_cost, age - start_age, inflation_rate)
-                assets["cash_balance"] -= adjusted_cost
 
             # カスタムイベントの購入処理
             events_this_year = self.get_custom_events_for_age(age)
