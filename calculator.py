@@ -972,8 +972,8 @@ class LifePlanCalculator:
                     # 現金に戻す（教育費分を現金から支出しなくて済む）
                     assets["cash_balance"] += payment_from_fund
 
-                # 65歳以降、現金残高がマイナスになる場合は資産を切り崩す
-                if age >= 65 and assets["cash_balance"] < 0:
+                # 現金残高がマイナスになる場合は資産を切り崩す（全年齢対象）
+                if assets["cash_balance"] < 0:
                     shortage = -assets["cash_balance"]
 
                     # 優先順位1: 特定口座から切り崩し
