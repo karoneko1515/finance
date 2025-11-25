@@ -202,7 +202,7 @@
       "name": "大学費用期",
       "monthly_expenses": {
         "food": 80000,
-        "basic_living": 350000
+        "basic_living": 200000
       },
       "monthly_investment": {
         "company_stock": 30000,
@@ -235,9 +235,9 @@
       "ages": "65-65",
       "name": "定年退職（年金生活）",
       "monthly_expenses": {
-        "food": 50000,
-        "basic_living": 50000,
-        "leisure_travel": 20000
+        "food": 80000,
+        "basic_living": 150000,
+        "leisure_travel": 50000
       },
       "monthly_investment": {},
       "bonus_allocation": {}

@@ -634,6 +634,14 @@ class LifePlanCalculator:
                 annual_education_cost -= self.loader.get_high_school_subsidy()
             elif first_child_age == 18:
                 annual_education_cost += education_costs_config.get("age_18", {}).get("exam_fees", 0)
+            elif 19 <= first_child_age <= 22:
+                # 大学費用（入学金は1年目のみ、学費と生活費は毎年）
+                university_costs = education_costs_config.get("age_19_22", {})
+                if first_child_age == 19:
+                    # 1年目は入学金も含む
+                    annual_education_cost += university_costs.get("university_entrance_fee", 0)
+                annual_education_cost += university_costs.get("university_annual_tuition", 0)
+                annual_education_cost += university_costs.get("living_expenses_annual", 0)
 
         # 第二子の教育費
         second_child_age = age - self.basic_info["second_child_birth_age"]
@@ -652,6 +660,14 @@ class LifePlanCalculator:
                 annual_education_cost -= self.loader.get_high_school_subsidy()
             elif second_child_age == 18:
                 annual_education_cost += education_costs_config.get("age_18", {}).get("exam_fees", 0)
+            elif 19 <= second_child_age <= 22:
+                # 大学費用（入学金は1年目のみ、学費と生活費は毎年）
+                university_costs = education_costs_config.get("age_19_22", {})
+                if second_child_age == 19:
+                    # 1年目は入学金も含む
+                    annual_education_cost += university_costs.get("university_entrance_fee", 0)
+                annual_education_cost += university_costs.get("university_annual_tuition", 0)
+                annual_education_cost += university_costs.get("living_expenses_annual", 0)
 
         # インフレ調整後、月次化
         monthly_education_cost = 0
@@ -946,6 +962,31 @@ class LifePlanCalculator:
 
                 # 現金残高更新（カスタムイベント積立は月間収支に含まれている）
                 assets["cash_balance"] += month_data["cashflow"]["monthly"]
+
+                # 65歳以降、現金残高がマイナスになる場合は資産を切り崩す
+                if age >= 65 and assets["cash_balance"] < 0:
+                    shortage = -assets["cash_balance"]
+
+                    # 優先順位1: 特定口座から切り崩し
+                    if assets["taxable_account_balance"] > 0:
+                        withdrawal = min(shortage, assets["taxable_account_balance"])
+                        assets["taxable_account_balance"] -= withdrawal
+                        assets["cash_balance"] += withdrawal
+                        shortage -= withdrawal
+
+                    # 優先順位2: NISA成長投資枠から切り崩し
+                    if shortage > 0 and assets["nisa_growth_balance"] > 0:
+                        withdrawal = min(shortage, assets["nisa_growth_balance"])
+                        assets["nisa_growth_balance"] -= withdrawal
+                        assets["cash_balance"] += withdrawal
+                        shortage -= withdrawal
+
+                    # 優先順位3: NISA積立投資枠から切り崩し
+                    if shortage > 0 and assets["nisa_tsumitate_balance"] > 0:
+                        withdrawal = min(shortage, assets["nisa_tsumitate_balance"])
+                        assets["nisa_tsumitate_balance"] -= withdrawal
+                        assets["cash_balance"] += withdrawal
+                        shortage -= withdrawal
 
                 # 自社株の時価評価
                 assets["company_stock_balance"] = assets["company_stock_shares"] * stock_price
@@ -1265,6 +1306,9 @@ class LifePlanCalculator:
                 "nisa_growth": assets["nisa_growth_balance"],
                 "company_stock": assets["company_stock_balance"],
                 "education_fund": assets["education_fund_balance"],
+                "marriage_fund": assets["marriage_fund_balance"],
+                "child_preparation_fund": assets["child_preparation_fund_balance"],
+                "emergency_fund": assets["emergency_fund_balance"],
                 "taxable_account": assets["taxable_account_balance"],
                 "cash": assets["cash_balance"],
                 "custom_event_funds": custom_event_funds,
@@ -1323,6 +1367,9 @@ class LifePlanCalculator:
             "nisa_growth": prev_year_data["nisa_growth"] if prev_year_data else 0,
             "company_stock": prev_year_data["company_stock"] if prev_year_data else 0,
             "education_fund": prev_year_data["education_fund"] if prev_year_data else 0,
+            "marriage_fund": prev_year_data.get("marriage_fund", 0) if prev_year_data else 0,
+            "child_preparation_fund": prev_year_data.get("child_preparation_fund", 0) if prev_year_data else 0,
+            "emergency_fund": prev_year_data.get("emergency_fund", 0) if prev_year_data else 0,
             "taxable_account": prev_year_data["taxable_account"] if prev_year_data else 0,
             "cash": prev_year_data["cash"] if prev_year_data else 0,
             "total": prev_year_data["assets_end"] if prev_year_data else 0
@@ -1334,6 +1381,9 @@ class LifePlanCalculator:
             "nisa_growth": year_data["nisa_growth"],
             "company_stock": year_data["company_stock"],
             "education_fund": year_data["education_fund"],
+            "marriage_fund": year_data.get("marriage_fund", 0),
+            "child_preparation_fund": year_data.get("child_preparation_fund", 0),
+            "emergency_fund": year_data.get("emergency_fund", 0),
             "taxable_account": year_data["taxable_account"],
             "cash": year_data["cash"],
             "total": year_data["assets_end"]
