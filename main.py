@@ -951,6 +951,236 @@ def simulate_with_custom_events(event_states):
         }
 
 
+@eel.expose
+def get_custom_events():
+    """
+    カスタムイベント一覧を取得
+
+    Returns:
+        dict: カスタムイベント一覧
+    """
+    try:
+        plan_data = data_loader.get_all_data()
+        custom_events_data = plan_data.get("custom_large_purchase_events", {})
+
+        return {
+            "success": True,
+            "data": {
+                "enabled": custom_events_data.get("enabled", False),
+                "events": custom_events_data.get("events", [])
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def add_custom_event(event_data):
+    """
+    カスタムイベントを追加
+
+    Args:
+        event_data: イベントデータ (dict)
+
+    Returns:
+        dict: 追加結果
+    """
+    try:
+        import uuid
+
+        plan_data = data_loader.get_all_data()
+
+        # custom_large_purchase_eventsが存在しない場合は初期化
+        if "custom_large_purchase_events" not in plan_data:
+            plan_data["custom_large_purchase_events"] = {
+                "enabled": True,
+                "events": []
+            }
+
+        # 新しいIDを生成
+        event_id = event_data.get("id")
+        if not event_id:
+            # 名前から簡単なIDを生成
+            base_name = event_data.get("name", "event").lower().replace(" ", "_")
+            event_id = f"{base_name}_{str(uuid.uuid4())[:8]}"
+
+        # イベントデータを構築
+        new_event = {
+            "id": event_id,
+            "name": event_data.get("name", "新しいイベント"),
+            "age": int(event_data.get("age", 30)),
+            "amount": int(event_data.get("amount", 0)),
+            "enabled": event_data.get("enabled", True),
+            "description": event_data.get("description", ""),
+            "category": event_data.get("category", "other"),
+            "priority": event_data.get("priority", 10)
+        }
+
+        # 自動積立設定
+        if "auto_saving" in event_data:
+            new_event["auto_saving"] = {
+                "enabled": event_data["auto_saving"].get("enabled", False),
+                "start_age": int(event_data["auto_saving"].get("start_age", new_event["age"] - 5)),
+                "monthly_amount": int(event_data["auto_saving"].get("monthly_amount", 0))
+            }
+
+        # イベントを追加
+        plan_data["custom_large_purchase_events"]["events"].append(new_event)
+
+        # プラン保存
+        data_loader.save_user_plan(plan_data)
+
+        # 計算機を再初期化
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+
+        return {
+            "success": True,
+            "message": "カスタムイベントを追加しました",
+            "event_id": event_id
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def update_custom_event(event_id, event_data):
+    """
+    カスタムイベントを更新
+
+    Args:
+        event_id: イベントID
+        event_data: 更新するイベントデータ (dict)
+
+    Returns:
+        dict: 更新結果
+    """
+    try:
+        plan_data = data_loader.get_all_data()
+
+        if "custom_large_purchase_events" not in plan_data:
+            return {
+                "success": False,
+                "error": "カスタムイベントが存在しません"
+            }
+
+        # イベントを検索
+        events = plan_data["custom_large_purchase_events"]["events"]
+        event_index = None
+        for i, event in enumerate(events):
+            if event["id"] == event_id:
+                event_index = i
+                break
+
+        if event_index is None:
+            return {
+                "success": False,
+                "error": "指定されたイベントが見つかりません"
+            }
+
+        # イベントデータを更新
+        event = events[event_index]
+        if "name" in event_data:
+            event["name"] = event_data["name"]
+        if "age" in event_data:
+            event["age"] = int(event_data["age"])
+        if "amount" in event_data:
+            event["amount"] = int(event_data["amount"])
+        if "enabled" in event_data:
+            event["enabled"] = event_data["enabled"]
+        if "description" in event_data:
+            event["description"] = event_data["description"]
+        if "category" in event_data:
+            event["category"] = event_data["category"]
+        if "priority" in event_data:
+            event["priority"] = event_data["priority"]
+
+        # 自動積立設定の更新
+        if "auto_saving" in event_data:
+            if "auto_saving" not in event:
+                event["auto_saving"] = {}
+            if "enabled" in event_data["auto_saving"]:
+                event["auto_saving"]["enabled"] = event_data["auto_saving"]["enabled"]
+            if "start_age" in event_data["auto_saving"]:
+                event["auto_saving"]["start_age"] = int(event_data["auto_saving"]["start_age"])
+            if "monthly_amount" in event_data["auto_saving"]:
+                event["auto_saving"]["monthly_amount"] = int(event_data["auto_saving"]["monthly_amount"])
+
+        # プラン保存
+        data_loader.save_user_plan(plan_data)
+
+        # 計算機を再初期化
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+
+        return {
+            "success": True,
+            "message": "カスタムイベントを更新しました"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@eel.expose
+def delete_custom_event(event_id):
+    """
+    カスタムイベントを削除
+
+    Args:
+        event_id: イベントID
+
+    Returns:
+        dict: 削除結果
+    """
+    try:
+        plan_data = data_loader.get_all_data()
+
+        if "custom_large_purchase_events" not in plan_data:
+            return {
+                "success": False,
+                "error": "カスタムイベントが存在しません"
+            }
+
+        # イベントを検索して削除
+        events = plan_data["custom_large_purchase_events"]["events"]
+        original_length = len(events)
+        plan_data["custom_large_purchase_events"]["events"] = [
+            event for event in events if event["id"] != event_id
+        ]
+
+        if len(plan_data["custom_large_purchase_events"]["events"]) == original_length:
+            return {
+                "success": False,
+                "error": "指定されたイベントが見つかりません"
+            }
+
+        # プラン保存
+        data_loader.save_user_plan(plan_data)
+
+        # 計算機を再初期化
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+
+        return {
+            "success": True,
+            "message": "カスタムイベントを削除しました"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
 def main():
     """メイン関数"""
     import gc

@@ -1110,6 +1110,9 @@ async function openSettingsModal() {
             document.getElementById('settingInflationEducation').value =
                 (data.inflation_settings.education_rate * 100).toFixed(1);
 
+            // カスタムイベントを読み込み
+            await loadCustomEvents();
+
             // モーダルを表示
             document.getElementById('settingsModal').style.display = 'block';
         } else {
@@ -1218,10 +1221,202 @@ async function resetToDefault() {
 
 // モーダル外クリックで閉じる
 window.onclick = function(event) {
-    const modal = document.getElementById('settingsModal');
-    if (event.target === modal) {
+    const settingsModal = document.getElementById('settingsModal');
+    const customEventModal = document.getElementById('customEventModal');
+    if (event.target === settingsModal) {
         closeSettingsModal();
     }
+    if (event.target === customEventModal) {
+        closeCustomEventModal();
+    }
+}
+
+// =========================
+// カスタムイベント管理
+// =========================
+
+async function loadCustomEvents() {
+    try {
+        const result = await eel.get_custom_events()();
+
+        if (result.success) {
+            const container = document.getElementById('customEventsContainer');
+            const events = result.data.events || [];
+
+            if (events.length === 0) {
+                container.innerHTML = '<p style="color: #9ca3af; font-size: 0.9rem;">登録されているイベントはありません</p>';
+                return;
+            }
+
+            let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+
+            events.forEach(event => {
+                const statusBadge = event.enabled ?
+                    '<span style="background: #10b981; color: white; padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">有効</span>' :
+                    '<span style="background: #6b7280; color: white; padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">無効</span>';
+
+                const autoSavingInfo = event.auto_saving && event.auto_saving.enabled ?
+                    `<div style="font-size: 0.8rem; color: #6b7280; margin-top: 0.25rem;">
+                        💰 自動積立: ${event.auto_saving.start_age}歳～ 月${(event.auto_saving.monthly_amount / 10000).toFixed(1)}万円
+                    </div>` : '';
+
+                html += `
+                    <div style="border: 1px solid #e5e7eb; padding: 0.75rem; border-radius: 0.5rem; background: ${event.enabled ? '#f9fafb' : '#f3f4f6'};">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; font-size: 0.95rem;">${event.name} ${statusBadge}</div>
+                                <div style="font-size: 0.85rem; color: #6b7280; margin-top: 0.25rem;">
+                                    ${event.age}歳 | ${(event.amount / 10000).toFixed(0)}万円
+                                </div>
+                                ${autoSavingInfo}
+                                ${event.description ? `<div style="font-size: 0.8rem; color: #9ca3af; margin-top: 0.25rem;">${event.description}</div>` : ''}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button onclick="editCustomEvent('${event.id}')" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">編集</button>
+                                <button onclick="deleteCustomEvent('${event.id}')" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem; background: #ef4444;">削除</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+    } catch (error) {
+        console.error('カスタムイベント読み込みエラー:', error);
+    }
+}
+
+function openAddCustomEventModal() {
+    document.getElementById('customEventModalTitle').textContent = '新しいカスタムイベントを追加';
+    document.getElementById('editEventId').value = '';
+    document.getElementById('eventName').value = '';
+    document.getElementById('eventAge').value = '35';
+    document.getElementById('eventAmount').value = '';
+    document.getElementById('eventDescription').value = '';
+    document.getElementById('eventCategory').value = 'other';
+    document.getElementById('eventEnabled').checked = true;
+    document.getElementById('autoSavingEnabled').checked = false;
+    document.getElementById('autoSavingStartAge').value = '30';
+    document.getElementById('autoSavingMonthly').value = '';
+
+    document.getElementById('customEventModal').style.display = 'block';
+}
+
+async function editCustomEvent(eventId) {
+    try {
+        const result = await eel.get_custom_events()();
+
+        if (result.success) {
+            const event = result.data.events.find(e => e.id === eventId);
+            if (!event) {
+                alert('イベントが見つかりません');
+                return;
+            }
+
+            document.getElementById('customEventModalTitle').textContent = 'カスタムイベント編集';
+            document.getElementById('editEventId').value = event.id;
+            document.getElementById('eventName').value = event.name;
+            document.getElementById('eventAge').value = event.age;
+            document.getElementById('eventAmount').value = event.amount;
+            document.getElementById('eventDescription').value = event.description || '';
+            document.getElementById('eventCategory').value = event.category || 'other';
+            document.getElementById('eventEnabled').checked = event.enabled;
+
+            if (event.auto_saving) {
+                document.getElementById('autoSavingEnabled').checked = event.auto_saving.enabled || false;
+                document.getElementById('autoSavingStartAge').value = event.auto_saving.start_age || event.age - 5;
+                document.getElementById('autoSavingMonthly').value = event.auto_saving.monthly_amount || '';
+            } else {
+                document.getElementById('autoSavingEnabled').checked = false;
+                document.getElementById('autoSavingStartAge').value = event.age - 5;
+                document.getElementById('autoSavingMonthly').value = '';
+            }
+
+            document.getElementById('customEventModal').style.display = 'block';
+        }
+    } catch (error) {
+        console.error('イベント編集エラー:', error);
+        alert('イベントの読み込みに失敗しました');
+    }
+}
+
+async function deleteCustomEvent(eventId) {
+    if (!confirm('このイベントを削除しますか？')) {
+        return;
+    }
+
+    try {
+        const result = await eel.delete_custom_event(eventId)();
+
+        if (result.success) {
+            await loadCustomEvents();
+            alert('イベントを削除しました');
+        } else {
+            alert('削除に失敗しました: ' + result.error);
+        }
+    } catch (error) {
+        console.error('削除エラー:', error);
+        alert('削除に失敗しました');
+    }
+}
+
+async function saveCustomEvent() {
+    const eventId = document.getElementById('editEventId').value;
+    const eventData = {
+        name: document.getElementById('eventName').value,
+        age: parseInt(document.getElementById('eventAge').value),
+        amount: parseInt(document.getElementById('eventAmount').value),
+        description: document.getElementById('eventDescription').value,
+        category: document.getElementById('eventCategory').value,
+        enabled: document.getElementById('eventEnabled').checked,
+        auto_saving: {
+            enabled: document.getElementById('autoSavingEnabled').checked,
+            start_age: parseInt(document.getElementById('autoSavingStartAge').value),
+            monthly_amount: parseInt(document.getElementById('autoSavingMonthly').value || 0)
+        }
+    };
+
+    // バリデーション
+    if (!eventData.name) {
+        alert('イベント名を入力してください');
+        return;
+    }
+    if (!eventData.age || eventData.age < 25 || eventData.age > 65) {
+        alert('発生年齢は25-65の範囲で入力してください');
+        return;
+    }
+    if (!eventData.amount || eventData.amount < 0) {
+        alert('金額を正しく入力してください');
+        return;
+    }
+
+    try {
+        let result;
+        if (eventId) {
+            // 更新
+            result = await eel.update_custom_event(eventId, eventData)();
+        } else {
+            // 新規追加
+            result = await eel.add_custom_event(eventData)();
+        }
+
+        if (result.success) {
+            closeCustomEventModal();
+            await loadCustomEvents();
+            alert(eventId ? 'イベントを更新しました' : 'イベントを追加しました');
+        } else {
+            alert('保存に失敗しました: ' + result.error);
+        }
+    } catch (error) {
+        console.error('保存エラー:', error);
+        alert('保存に失敗しました');
+    }
+}
+
+function closeCustomEventModal() {
+    document.getElementById('customEventModal').style.display = 'none';
 }
 
 console.log('app.js ロード完了');

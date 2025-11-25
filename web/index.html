@@ -599,12 +599,94 @@
                             <input type="number" id="settingInflationEducation" min="0" max="10" step="0.1" class="settings-input">
                         </div>
                     </div>
+
+                    <h3 style="margin-top: 2rem;">カスタムイベント管理</h3>
+                    <p class="settings-info">
+                        車の購入や海外旅行など、大きな支出イベントを登録・管理できます。
+                    </p>
+                    <div id="customEventsContainer" style="margin-bottom: 1rem;">
+                        <!-- カスタムイベント一覧がここに表示されます -->
+                    </div>
+                    <button class="btn btn-secondary" onclick="openAddCustomEventModal()" style="margin-top: 0.5rem;">
+                        ＋ 新しいイベントを追加
+                    </button>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeSettingsModal()">閉じる</button>
                 <button class="btn btn-secondary" onclick="resetToDefault()">初期値に戻す</button>
                 <button class="btn btn-primary" onclick="saveAndRecalculate()">再計算</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- カスタムイベント編集モーダル -->
+    <div id="customEventModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 id="customEventModalTitle">カスタムイベント編集</h2>
+                <button class="modal-close" onclick="closeCustomEventModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editEventId">
+                <div class="settings-grid">
+                    <div class="settings-item" style="grid-column: 1 / -1;">
+                        <label>イベント名 *</label>
+                        <input type="text" id="eventName" class="settings-input" placeholder="例: ファミリーカー購入">
+                    </div>
+                    <div class="settings-item">
+                        <label>発生年齢 *</label>
+                        <input type="number" id="eventAge" min="25" max="65" class="settings-input">
+                    </div>
+                    <div class="settings-item">
+                        <label>金額（円） *</label>
+                        <input type="number" id="eventAmount" min="0" step="10000" class="settings-input" placeholder="例: 3000000">
+                    </div>
+                    <div class="settings-item" style="grid-column: 1 / -1;">
+                        <label>説明</label>
+                        <input type="text" id="eventDescription" class="settings-input" placeholder="例: 新車購入費用">
+                    </div>
+                    <div class="settings-item">
+                        <label>カテゴリ</label>
+                        <select id="eventCategory" class="settings-input">
+                            <option value="vehicle">車両</option>
+                            <option value="travel">旅行</option>
+                            <option value="housing">住宅関連</option>
+                            <option value="education">教育</option>
+                            <option value="medical">医療</option>
+                            <option value="other">その他</option>
+                        </select>
+                    </div>
+                    <div class="settings-item">
+                        <label>有効/無効</label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+                            <input type="checkbox" id="eventEnabled" checked>
+                            <span>有効にする</span>
+                        </label>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 1.5rem; font-size: 1rem;">自動積立設定</h3>
+                <div class="settings-grid">
+                    <div class="settings-item" style="grid-column: 1 / -1;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="autoSavingEnabled">
+                            <span>自動積立を有効にする</span>
+                        </label>
+                    </div>
+                    <div class="settings-item">
+                        <label>積立開始年齢</label>
+                        <input type="number" id="autoSavingStartAge" min="25" max="65" class="settings-input">
+                    </div>
+                    <div class="settings-item">
+                        <label>月額積立額（円）</label>
+                        <input type="number" id="autoSavingMonthly" min="0" step="1000" class="settings-input" placeholder="例: 50000">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeCustomEventModal()">キャンセル</button>
+                <button class="btn btn-primary" onclick="saveCustomEvent()">保存</button>
             </div>
         </div>
     </div>
