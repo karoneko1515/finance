@@ -557,9 +557,11 @@ class LifePlanCalculator:
         housing_allowance_monthly = self.get_housing_allowance_for_age(age)
         housing_allowance_annual = housing_allowance_monthly * 12
 
-        # 手取り計算
-        net_annual = self.calculate_takehome(annual_salary, housing_allowance_annual)
-        monthly_net_salary = net_annual / 12
+        # 手取り計算（月給とボーナスを分離）
+        # 月給のみの手取り
+        monthly_gross = base_salary * 12
+        monthly_net = self.calculate_takehome(monthly_gross, housing_allowance_annual)
+        monthly_net_salary = monthly_net / 12
 
         # ボーナス（年2回に分けて支給）
         if is_bonus_month:
@@ -599,16 +601,17 @@ class LifePlanCalculator:
 
         total_monthly_expenses = sum(monthly_expenses.values()) + rent + mortgage + utilities
 
-        # 余剰金計算（投資前）
-        available_for_investment = total_income - total_monthly_expenses
+        # 余剰金計算（投資前） - ボーナスを除いた月給ベースの収支
+        monthly_income_excluding_bonus = monthly_net_salary + spouse_income + pension_income + child_allowance
+        available_for_investment = monthly_income_excluding_bonus - total_monthly_expenses
 
         # 投資の優先順位を定義
         investment_priority = [
             "company_stock",           # 1. 自社株（奨励金あり）
-            "nisa_tsumitate",          # 2. NISA積立（税制優遇）
-            "emergency_fund",          # 3. 緊急予備費
-            "marriage_fund",           # 4. 結婚資金
-            "child_preparation_fund",  # 5. 子供準備金
+            "marriage_fund",           # 2. 結婚資金（確定イベント）
+            "child_preparation_fund",  # 3. 子供準備金（確定イベント）
+            "nisa_tsumitate",          # 4. NISA積立（税制優遇）
+            "emergency_fund",          # 5. 緊急予備費
             "education_fund",          # 6. 教育資金
             "high_dividend_stocks"     # 7. 高配当株
         ]
@@ -720,6 +723,8 @@ class LifePlanCalculator:
             "company_stock_shares": 0,
             "education_fund_balance": 0,
             "marriage_fund_balance": 0,
+            "child_preparation_fund_balance": 0,
+            "emergency_fund_balance": 0,
             "taxable_account_balance": 0,
             "cash_balance": 0,
             "total": 0
@@ -838,15 +843,15 @@ class LifePlanCalculator:
                 if marriage_contribution > 0:
                     assets["marriage_fund_balance"] += marriage_contribution
 
-                # 子供準備資金積立（28-29歳）- 現金として積立
+                # 子供準備資金積立
                 child_prep_contribution = month_data["investment"].get("child_preparation_fund", 0)
                 if child_prep_contribution > 0:
-                    assets["cash_balance"] += child_prep_contribution
+                    assets["child_preparation_fund_balance"] += child_prep_contribution
 
-                # 緊急予備費積立 - 現金として積立
+                # 緊急予備費積立
                 emergency_contribution = month_data["investment"].get("emergency_fund", 0)
                 if emergency_contribution > 0:
-                    assets["cash_balance"] += emergency_contribution
+                    assets["emergency_fund_balance"] += emergency_contribution
 
                 # 高配当株投資（特定口座）
                 high_dividend_contribution = month_data["investment"].get("high_dividend_stocks", 0)
@@ -867,6 +872,31 @@ class LifePlanCalculator:
                 # カスタムイベント積立分を現金から差し引く
                 total_event_saving = sum(event_savings.values())
                 assets["cash_balance"] -= total_event_saving
+
+                # 自社株の時価評価
+                assets["company_stock_balance"] = assets["company_stock_shares"] * stock_price
+
+                # 総資産を計算
+                assets["total"] = (
+                    assets["nisa_tsumitate_balance"] +
+                    assets["nisa_growth_balance"] +
+                    assets["company_stock_balance"] +
+                    assets["education_fund_balance"] +
+                    assets["marriage_fund_balance"] +
+                    assets["child_preparation_fund_balance"] +
+                    assets["emergency_fund_balance"] +
+                    assets["taxable_account_balance"] +
+                    assets["cash_balance"]
+                )
+
+                # カスタムイベント用の資産も総資産に含める
+                for event in active_events:
+                    fund_key = f"custom_event_{event['id']}_fund"
+                    if fund_key in assets:
+                        assets["total"] += assets[fund_key]
+
+                # 月次データにassets情報を更新
+                month_data["assets"] = assets.copy()
 
             # 年末処理
             # イレギュラー支出を記録するリスト
