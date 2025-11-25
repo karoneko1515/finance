@@ -277,8 +277,10 @@ class LifePlanCalculator:
             return housing_costs.get("25-27", {})
         elif age <= 49:
             return housing_costs.get("28-49", {})
+        elif age <= 64:
+            return housing_costs.get("50-64", {})
         else:
-            return housing_costs.get("50-55", {})
+            return housing_costs.get("65-99", {})
 
     def get_phase_for_age(self, age):
         """
@@ -573,17 +575,29 @@ class LifePlanCalculator:
         # 配偶者収入
         spouse_income = self.get_spouse_income_for_age(age)
 
-        # 年金収入
+        # 年金収入（本人 + 配偶者）
         pension_income = self.get_pension_for_age(age)
+        spouse_pension = self.get_spouse_pension_for_age(age)
+        pension_income += spouse_pension
 
         # 児童手当
         child_allowance = self.calculate_child_allowance(age)
 
+        # Phase情報を取得（収入・支出計算に必要）
+        phase = self.get_phase_for_age(age)
+
+        # 生活費補填（ボーナスからの月次配分）
+        living_supplement_monthly = 0
+        if phase:
+            bonus_alloc = phase.get("bonus_allocation", {})
+            living_supplement_annual = bonus_alloc.get("living_supplement", 0)
+            if living_supplement_annual > 0:
+                living_supplement_monthly = living_supplement_annual / 12
+
         # 総収入
-        total_income = monthly_net_salary + bonus_net + spouse_income + pension_income + child_allowance
+        total_income = monthly_net_salary + bonus_net + spouse_income + pension_income + child_allowance + living_supplement_monthly
 
         # 支出計算
-        phase = self.get_phase_for_age(age)
         housing_costs = self.get_housing_costs_for_age(age)
 
         # 住居費
@@ -738,6 +752,7 @@ class LifePlanCalculator:
                 "spouse_income": spouse_income,
                 "pension": pension_income,
                 "child_allowance": child_allowance,
+                "living_supplement": living_supplement_monthly,
                 "housing_allowance": housing_allowance_monthly if housing_allowance_monthly > 0 else 0,
                 "total": total_income
             },

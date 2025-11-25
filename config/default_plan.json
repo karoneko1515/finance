@@ -91,8 +91,11 @@
       "rent": 60000,
       "utilities": 15000
     },
-    "50-65": {
+    "50-64": {
       "mortgage": 138000,
+      "utilities": 15000
+    },
+    "65-99": {
       "utilities": 15000
     }
   },
@@ -154,7 +157,6 @@
         "daily_goods_children": 30000,
         "communication": 20000,
         "insurance": 30000,
-        "childcare_lessons": 60000,
         "entertainment": 20000,
         "pet": 30000,
         "clothing_medical": 20000
@@ -180,7 +182,6 @@
         "daily_goods": 30000,
         "communication": 20000,
         "insurance": 30000,
-        "education_cram_school": 100000,
         "entertainment": 20000,
         "pet": 30000,
         "clothing_medical": 20000
@@ -232,11 +233,11 @@
     },
     "phase7": {
       "ages": "65-65",
-      "name": "定年退職（無収入）",
+      "name": "定年退職（年金生活）",
       "monthly_expenses": {
-        "food": 80000,
-        "basic_living": 250000,
-        "leisure_travel": 50000
+        "food": 50000,
+        "basic_living": 50000,
+        "leisure_travel": 20000
       },
       "monthly_investment": {},
       "bonus_allocation": {}
