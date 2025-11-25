@@ -963,6 +963,15 @@ class LifePlanCalculator:
                 # 現金残高更新（カスタムイベント積立は月間収支に含まれている）
                 assets["cash_balance"] += month_data["cashflow"]["monthly"]
 
+                # 教育費をeducation_fundから優先的に支出
+                education_expense = month_data["expenses"].get("education", 0)
+                if education_expense > 0 and assets["education_fund_balance"] > 0:
+                    # education_fundから支払える額
+                    payment_from_fund = min(education_expense, assets["education_fund_balance"])
+                    assets["education_fund_balance"] -= payment_from_fund
+                    # 現金に戻す（教育費分を現金から支出しなくて済む）
+                    assets["cash_balance"] += payment_from_fund
+
                 # 65歳以降、現金残高がマイナスになる場合は資産を切り崩す
                 if age >= 65 and assets["cash_balance"] < 0:
                     shortage = -assets["cash_balance"]

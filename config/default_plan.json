@@ -162,14 +162,12 @@
         "clothing_medical": 20000
       },
       "monthly_investment": {
-        "nisa_tsumitate": 100000,
-        "company_stock": 21000,
-        "education_fund": 60000
+        "company_stock": 21000
       },
       "bonus_allocation": {
+        "nisa_tsumitate": 600000,
         "nisa_growth": 400000,
-        "education_fund": 600000,
-        "living_supplement": 800000,
+        "education_fund": 800000,
         "travel": 400000,
         "reserve": 400000
       }
@@ -187,13 +185,12 @@
         "clothing_medical": 20000
       },
       "monthly_investment": {
-        "education_fund": 100000,
         "company_stock": 21000
       },
       "bonus_allocation": {
-        "nisa_growth": 300000,
-        "education_fund": 800000,
-        "living_supplement": 1000000,
+        "nisa_growth": 500000,
+        "education_fund": 1200000,
+        "travel": 400000,
         "reserve": 600000
       }
     },
