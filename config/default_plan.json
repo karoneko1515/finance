@@ -167,9 +167,9 @@
       "bonus_allocation": {
         "nisa_tsumitate": 600000,
         "nisa_growth": 400000,
-        "education_fund": 800000,
-        "travel": 400000,
-        "reserve": 400000
+        "education_fund": 1100000,
+        "travel": 200000,
+        "reserve": 300000
       }
     },
     "phase4": {
@@ -189,9 +189,9 @@
       },
       "bonus_allocation": {
         "nisa_growth": 500000,
-        "education_fund": 1200000,
-        "travel": 400000,
-        "reserve": 600000
+        "education_fund": 1600000,
+        "travel": 150000,
+        "reserve": 450000
       }
     },
     "phase5": {
