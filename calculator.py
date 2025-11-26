@@ -971,6 +971,8 @@ class LifePlanCalculator:
                     assets["education_fund_balance"] -= payment_from_fund
                     # 現金に戻す（教育費分を現金から支出しなくて済む）
                     assets["cash_balance"] += payment_from_fund
+                    # 月次収支を調整（教育資金から支払った分は支出ではないため）
+                    month_data["cashflow"]["monthly"] += payment_from_fund
 
                 # 現金残高がマイナスになる場合は資産を切り崩す（全年齢対象）
                 if assets["cash_balance"] < 0:
