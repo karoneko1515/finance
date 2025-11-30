@@ -1,6 +1,6 @@
 """
 ライフプラン計算エンジン
-30年間の詳細な資産形成シミュレーションを実行
+40年間（25-65歳）の詳細な資産形成シミュレーションを実行
 """
 import numpy as np
 import pandas as pd
@@ -211,7 +211,8 @@ class LifePlanCalculator:
         if age >= second_child_birth:
             child2_age = age - second_child_birth
             if child2_age <= 2:
-                total_allowance += child_allowance["age_3_14_second_child"]
+                # 修正: 0-2歳は age_0_2 を使用すべきだが、第二子は age_3_14_second_child と同額
+                total_allowance += child_allowance["age_0_2"]  # 15,000円
             elif child2_age <= 14:
                 total_allowance += child_allowance["age_3_14"]
 
@@ -387,9 +388,9 @@ class LifePlanCalculator:
             }
         }
 
-    def simulate_30_years(self):
+    def simulate_40_years(self):
         """
-        30年間のシミュレーションを実行
+        40年間（25-65歳）のシミュレーションを実行
 
         Returns:
             tuple: (月次データリスト, 年次データリスト)
@@ -445,6 +446,9 @@ class LifePlanCalculator:
 
                 # 資産更新
                 # NISA積立
+                # 注意: 現在の実装では簡易的に tsumitate_limit = 1,200万円、growth_limit = 600万円としているが、
+                # 実際の新NISA制度では生涯投資枠1,800万円のうち成長投資枠は最大1,200万円まで。
+                # より正確な実装を行う場合は、合計1,800万円の制約と成長投資枠1,200万円の制約を両方チェックする必要がある。
                 nisa_contribution = month_data["investment"].get("nisa_tsumitate", 0)
                 if nisa_contribution > 0:
                     if nisa_tsumitate_total_contribution < self.investment_settings["nisa"]["tsumitate_limit"]:
@@ -1060,7 +1064,7 @@ class LifePlanCalculator:
 # テスト用
 if __name__ == "__main__":
     calc = LifePlanCalculator()
-    monthly, yearly = calc.simulate_30_years()
+    monthly, yearly = calc.simulate_40_years()
 
     print("=== 年次サマリー（最初の5年） ===")
     for y in yearly[:5]:

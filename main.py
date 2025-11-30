@@ -26,7 +26,7 @@ def run_simulation():
         dict: 計算結果
     """
     try:
-        monthly_data, yearly_data = calculator.simulate_30_years()
+        monthly_data, yearly_data = calculator.simulate_40_years()
         return {
             "success": True,
             "data": calculator.export_to_dict()
@@ -373,7 +373,7 @@ def calculate_scenario_comparison(scenarios):
             # 計算実行
             temp_loader.plan_data = plan_data
             temp_calc = LifePlanCalculator(temp_loader)
-            monthly, yearly = temp_calc.simulate_30_years()
+            monthly, yearly = temp_calc.simulate_40_years()
 
             results.append({
                 "scenario_name": scenario.get("name", "シナリオ"),
@@ -397,7 +397,7 @@ def main():
     import gc
 
     print("=" * 60)
-    print("30年間ライフプラン・資産形成シミュレーター")
+    print("40年間ライフプラン・資産形成シミュレーター (25-65歳)")
     print("=" * 60)
     print("サーバーを起動しています...")
     print("終了するには、Ctrl+C を押してください。")
@@ -408,7 +408,7 @@ def main():
 
     # 初回シミュレーション実行（キャッシュ作成）
     print("\n初期シミュレーションを実行中...")
-    calculator.simulate_30_years()
+    calculator.simulate_40_years()
     print("完了！\n")
 
     print("アクセスURL: http://localhost:8880")

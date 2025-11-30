@@ -716,9 +716,9 @@ function renderComparisonTable(scenarioData) {
     const cfDiff = comparisonCumulativeCF - baselineCumulativeCF;
     const cfDiffPercent = ((cfDiff / Math.abs(baselineCumulativeCF)) * 100).toFixed(1);
 
-    // 総投資額を計算
-    const baselineTotalInvestment = baselineYearly.reduce((sum, y) => sum + y.investment_annual, 0);
-    const comparisonTotalInvestment = comparisonYearly.reduce((sum, y) => sum + y.investment_annual, 0);
+    // 総投資額を計算 (修正: investment_annual → investment_total)
+    const baselineTotalInvestment = baselineYearly.reduce((sum, y) => sum + y.investment_total, 0);
+    const comparisonTotalInvestment = comparisonYearly.reduce((sum, y) => sum + y.investment_total, 0);
     const investmentDiff = comparisonTotalInvestment - baselineTotalInvestment;
     const investmentDiffPercent = ((investmentDiff / baselineTotalInvestment) * 100).toFixed(1);
 
