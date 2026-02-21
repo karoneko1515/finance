@@ -940,3 +940,860 @@ body.dark-mode .irregular-expense-item {
     color: #dc2626;
     background-color: rgba(220, 38, 38, 0.1);
 }
+
+/* ==================== 実績管理ビュー ==================== */
+
+.nav-tab-actual {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(59, 130, 246, 0.15));
+    border-left: 2px solid var(--accent-green) !important;
+}
+
+.nav-tab-actual.active {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(59, 130, 246, 0.3));
+}
+
+.actual-header-section {
+    margin-bottom: 1.5rem;
+}
+
+.actual-header-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.actual-description {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.actual-input-card {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.actual-input-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.actual-input-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.actual-input-row .settings-item {
+    flex: 1;
+    min-width: 160px;
+}
+
+.actual-summary-cards {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.actual-stat-card {
+    flex: 1;
+    min-width: 180px;
+    padding: 1rem 1.25rem;
+}
+
+.actual-stat-card h4 {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.actual-records-table-wrapper {
+    overflow-x: auto;
+    margin-top: 0.5rem;
+}
+
+.actual-records-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.actual-records-table th,
+.actual-records-table td {
+    padding: 0.6rem 0.8rem;
+    text-align: right;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.actual-records-table th:first-child,
+.actual-records-table td:first-child,
+.actual-records-table th:last-child,
+.actual-records-table td:last-child {
+    text-align: center;
+}
+
+.actual-records-table th {
+    background-color: var(--bg-secondary);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.actual-records-table tbody tr:hover {
+    background-color: var(--bg-secondary);
+}
+
+.btn-sm {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.8rem;
+}
+
+/* ================================================================
+   データ編集タブ
+   ================================================================ */
+
+.nav-tab-editor {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    border-left: 3px solid #5b21b6;
+}
+
+/* エディタ サブタブ */
+.editor-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0;
+}
+
+.editor-tab {
+    padding: 0.55rem 1.2rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.editor-tab:hover { color: var(--text-primary); }
+.editor-tab.active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+}
+
+/* エディタ パネル */
+.editor-panel { display: none; }
+.editor-panel.active { display: block; }
+
+/* ── 給与レンジ編集カード ── */
+.editor-range-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.editor-range-card h4 {
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.editor-range-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    align-items: flex-end;
+}
+
+.editor-range-row label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+.editor-range-row input,
+.editor-range-row select {
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    width: 130px;
+}
+
+.range-sep {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    padding-bottom: 0.3rem;
+}
+
+.editor-hint {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+    opacity: 0.7;
+}
+
+/* 給与テーブル カード */
+.editor-table-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.editor-table-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.2rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.editor-table-header h3,
+.editor-table-card h3,
+.editor-table-card h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+/* テーブル横スクロール対応 */
+.editor-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.editor-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.editor-table th,
+.editor-table td {
+    padding: 0.5rem 1rem;
+    text-align: right;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.editor-table th {
+    background: var(--bg-secondary);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+}
+
+.editor-table td:first-child { text-align: center; }
+
+.editor-table tbody tr:hover { background: rgba(59, 130, 246, 0.05); }
+
+/* アンカー行ハイライト */
+.editor-table tr.anchor-row td { font-weight: 700; color: var(--accent-color); }
+
+.salary-age-cell   { font-weight: 700; }
+.salary-annual-cell { color: #10b981; font-weight: 600; }
+
+.salary-inline-input {
+    width: 110px;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--accent-color);
+    border-radius: 5px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.btn-salary-edit {
+    padding: 0.25rem 0.65rem;
+    font-size: 0.78rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.btn-salary-edit:hover { border-color: var(--accent-color); color: var(--accent-color); }
+
+/* ── ライフイベントエディタ ── */
+.editor-events-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.editor-events-card h3 {
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.preset-events-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+}
+
+.preset-event-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.preset-event-header {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 0.8rem;
+    color: var(--text-primary);
+}
+
+.preset-event-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.preset-event-fields label { font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 0.2rem; }
+
+.preset-event-fields input {
+    padding: 0.4rem 0.7rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    width: 140px;
+}
+
+/* カスタムイベントフォーム */
+.custom-event-form {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.custom-event-form h4 {
+    margin: 0 0 0.8rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.custom-event-form .editor-range-row input {
+    width: 150px;
+}
+
+/* カスタムイベント一覧テーブル */
+#customEventsList {
+    margin-top: 0.5rem;
+}
+
+/* ── 生活費フェーズ アコーディオン ── */
+.editor-phase-hint {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    opacity: 0.75;
+}
+
+.phase-expense-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    margin-bottom: 0.7rem;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+
+.phase-expense-card.open { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+.phase-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.9rem 1.2rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+
+.phase-card-header:hover { background: rgba(59,130,246,0.05); }
+
+.phase-card-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.phase-card-range {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    flex: 1;
+}
+
+.phase-card-total {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #10b981;
+}
+
+.phase-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+
+.phase-toggle-icon {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    transition: transform 0.2s;
+}
+
+.phase-expense-card.open .phase-toggle-icon { transform: rotate(180deg); }
+
+.phase-card-body {
+    display: none;
+    padding: 0 1.2rem 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.phase-expense-card.open .phase-card-body { display: block; }
+
+.phase-expense-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.8rem;
+    margin-top: 0.9rem;
+}
+
+.phase-expense-fields .field-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.phase-expense-fields label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.phase-expense-input {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.phase-expense-input:focus {
+    border-color: var(--accent-color);
+    outline: none;
+}
+
+/* ================================================================
+   ゴール達成率ゲージ
+   ================================================================ */
+
+.actual-goal-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.goal-gauge-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.goal-gauge-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+#goalGaugesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.goal-gauge-item {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+}
+
+/* ゴールゲージ：計画/実績ソースバッジ（セクションヘッダー用） */
+.goal-source-badge {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.6rem;
+    vertical-align: middle;
+}
+
+.badge-actual {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-plan {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+/* 個別ゲージアイテムのラベル行（ラベル + 小バッジ） */
+.goal-gauge-label-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.6rem;
+}
+
+.gauge-src-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.1rem 0.45rem;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.gauge-src-actual { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.gauge-src-plan   { background: rgba(148, 163, 184, 0.12); color: #94a3b8; }
+
+.goal-gauge-label {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.goal-gauge-bar-wrap {
+    height: 10px;
+    background: var(--bg-secondary);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 0.55rem;
+}
+
+.goal-gauge-bar {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.goal-gauge-values {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+}
+
+.goal-current { font-weight: 700; color: var(--text-primary); }
+.goal-rate    { font-weight: 800; font-size: 0.95rem; }
+.goal-target  { color: var(--text-secondary); }
+
+/* ================================================================
+   実績ベース将来予測
+   ================================================================ */
+
+.actual-predict-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.predict-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.predict-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.predict-info-bar {
+    display: none;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+    padding: 0.7rem 0;
+}
+
+.predict-chip {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.chip-green { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.chip-red   { background: rgba(239, 68, 68, 0.15);  color: #ef4444; }
+
+/* ================================================================
+   トースト通知
+   ================================================================ */
+
+.app-toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #1e293b;
+    color: #f1f5f9;
+    padding: 0.7rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.app-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ==================== モンテカルロ ==================== */
+
+.nav-tab-mc {
+    background: linear-gradient(135deg, #6d28d9, #8b5cf6);
+    color: #fff !important;
+    font-weight: 600;
+}
+.nav-tab-mc:hover, .nav-tab-mc.active {
+    background: linear-gradient(135deg, #5b21b6, #7c3aed) !important;
+    color: #fff !important;
+}
+
+.mc-header {
+    margin-bottom: 1.5rem;
+}
+.mc-header h2 { margin-bottom: 0.5rem; }
+.mc-description {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.mc-params-card { padding: 1.5rem; margin-bottom: 1.5rem; }
+.mc-params-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+}
+
+.mc-run-buttons {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.mc-run-btn { min-width: 180px; }
+
+.btn-mc-actual {
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: #fff;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.btn-mc-actual:hover { opacity: 0.85; }
+
+.mc-loading-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+.mc-loading-bar .spinner {
+    width: 20px;
+    height: 20px;
+    border-width: 2px;
+}
+
+.mc-empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.8;
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    margin: 1rem 0;
+}
+
+.mc-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.mc-summary-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    box-shadow: var(--shadow);
+}
+.mc-summary-card .mc-card-label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+.mc-summary-card .mc-card-value {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.mc-summary-card .mc-card-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.3rem;
+    font-weight: 600;
+}
+.mc-badge-plan   { background: rgba(59,130,246,0.15);  color: #2563eb; }
+.mc-badge-actual { background: rgba(16,185,129,0.15);  color: #059669; }
+
+/* ==================== 老後使用可能額 ==================== */
+
+.retirement-income-card {
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+}
+.retirement-income-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.2rem;
+}
+.retirement-income-header h2 { margin-bottom: 0.3rem; }
+.retirement-income-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+.retirement-return-control {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 180px;
+}
+.retirement-return-control label {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.retirement-base-row {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    padding: 0.9rem 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    margin-bottom: 1.2rem;
+    font-size: 0.9rem;
+}
+.retirement-base-row .rb-item { display: flex; flex-direction: column; gap: 0.1rem; }
+.retirement-base-row .rb-label { font-size: 0.75rem; color: var(--text-secondary); }
+.retirement-base-row .rb-value { font-weight: 700; color: var(--text-primary); }
+.retirement-table-wrapper { overflow-x: auto; }
+.retirement-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.retirement-table th {
+    padding: 0.6rem 0.9rem;
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+}
+.retirement-table th:first-child { text-align: left; }
+.retirement-table td {
+    padding: 0.65rem 0.9rem;
+    text-align: right;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+.retirement-table td:first-child { text-align: left; font-weight: 600; }
+.retirement-table tbody tr:hover { background: var(--bg-secondary); }
+.retirement-table .highlight-col { color: var(--primary-light); font-weight: 700; }
+.retirement-table thead .highlight-col { color: var(--primary-light); }
+.retirement-table .row-highlight td { background: rgba(59,130,246,0.07); }
+.retirement-note {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-top: 0.8rem;
+    line-height: 1.6;
+}

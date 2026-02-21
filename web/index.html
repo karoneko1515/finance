@@ -3,10 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- CSP: インラインスクリプト禁止・外部ロードはPlotlyのみ許可 -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self' https://cdn.plot.ly; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:;">
     <title>40年間ライフプラン・資産形成シミュレーター (25-65歳)</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="/eel.js"></script>
-    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <!-- SRI: Plotly CDN の整合性検証 (sha384はCDNの公式ハッシュ) -->
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"
+            crossorigin="anonymous"></script>
 </head>
 <body>
     <div class="container">
@@ -37,6 +42,9 @@
             <button class="nav-tab" data-view="education">教育費</button>
             <button class="nav-tab" data-view="dividend">配当金</button>
             <button class="nav-tab" data-view="scenario">シナリオ比較</button>
+            <button class="nav-tab nav-tab-actual" data-view="actual">📊 実績管理</button>
+            <button class="nav-tab nav-tab-editor" data-view="editor">✏️ データ編集</button>
+            <button class="nav-tab nav-tab-mc" data-view="montecarlo">🎲 モンテカルロ</button>
         </nav>
 
         <!-- メインコンテンツ -->
@@ -79,6 +87,57 @@
                 <div class="chart-container">
                     <h2>資産内訳推移</h2>
                     <div id="assetsBreakdownChart"></div>
+                </div>
+
+                <!-- 老後の月・年間使用可能額 -->
+                <div class="card retirement-income-card">
+                    <div class="retirement-income-header">
+                        <div>
+                            <h2>🏡 老後の月・年間使用可能額</h2>
+                            <p class="retirement-income-desc">
+                                配当資産（自社株・特定口座）は元本を維持しながら配当収入を受け取り、<br>
+                                NISA・現金は年金現価方式で均等取り崩しします。
+                            </p>
+                        </div>
+                        <div class="retirement-return-control">
+                            <label>NISA・現金の運用利回り</label>
+                            <select id="retirementReturnRate" class="settings-input">
+                                <option value="0">0%（保守的・現金のみ）</option>
+                                <option value="0.01">1%</option>
+                                <option value="0.02" selected>2%（標準）</option>
+                                <option value="0.03">3%</option>
+                                <option value="0.04">4%</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- サマリー行 -->
+                    <div id="retirementIncomeBase" class="retirement-base-row"></div>
+
+                    <!-- シナリオ表 -->
+                    <div class="retirement-table-wrapper">
+                        <table class="retirement-table" id="retirementIncomeTable">
+                            <thead>
+                                <tr>
+                                    <th>目標寿命</th>
+                                    <th>取り崩し期間</th>
+                                    <th>NISA等 取り崩し</th>
+                                    <th>＋ 配当収入</th>
+                                    <th>＋ 年金等</th>
+                                    <th class="highlight-col">月間合計</th>
+                                    <th class="highlight-col">年間合計</th>
+                                </tr>
+                            </thead>
+                            <tbody id="retirementIncomeRows">
+                                <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">計算中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="retirement-note">
+                        ※ 配当収入: (自社株 × 3% + 特定口座 × 4%) × (1 − 20.315%) の税引後月額（元本維持）<br>
+                        ※ NISA等取り崩し: NISA・現金・教育資金を年金現価方式（定額年金）で均等に取り崩した月額<br>
+                        ※ 年金等: 設定された公的年金 ＋ 配偶者収入（65歳以降）の合計
+                    </p>
                 </div>
             </section>
 
@@ -316,6 +375,254 @@
                     <div id="scenarioComparisonChart"></div>
                 </div>
             </section>
+
+            <!-- 実績管理ビュー -->
+            <section id="actual-view" class="view">
+                <div class="actual-header-section">
+                    <h2>📊 実績入力・計画比較</h2>
+                    <p class="actual-description">実際の収支を月次で記録し、計画値との乖離を確認できます。入力した実績に基づいて将来予測の精度が上がります。</p>
+                </div>
+
+                <!-- 月次実績入力フォーム -->
+                <div class="card actual-input-card">
+                    <h3>月次実績を入力</h3>
+                    <div class="actual-input-grid">
+                        <div class="actual-input-row">
+                            <div class="settings-item">
+                                <label>年</label>
+                                <input type="number" id="actualYear" class="settings-input" min="2020" max="2070" placeholder="例: 2025">
+                            </div>
+                            <div class="settings-item">
+                                <label>月</label>
+                                <select id="actualMonth" class="settings-input">
+                                    <option value="1">1月</option><option value="2">2月</option>
+                                    <option value="3">3月</option><option value="4">4月</option>
+                                    <option value="5">5月</option><option value="6">6月</option>
+                                    <option value="7">7月</option><option value="8">8月</option>
+                                    <option value="9">9月</option><option value="10">10月</option>
+                                    <option value="11">11月</option><option value="12">12月</option>
+                                </select>
+                            </div>
+                            <div class="settings-item">
+                                <label>年齢</label>
+                                <input type="number" id="actualAge" class="settings-input" min="20" max="80" placeholder="例: 27">
+                            </div>
+                        </div>
+                        <div class="actual-input-row">
+                            <div class="settings-item">
+                                <label>実際の収入（手取り・円）</label>
+                                <input type="number" id="actualIncome" class="settings-input" min="0" step="1000" placeholder="例: 350000">
+                            </div>
+                            <div class="settings-item">
+                                <label>実際の支出（円）</label>
+                                <input type="number" id="actualExpenses" class="settings-input" min="0" step="1000" placeholder="例: 200000">
+                            </div>
+                            <div class="settings-item">
+                                <label>実際の投資（円）</label>
+                                <input type="number" id="actualInvestment" class="settings-input" min="0" step="1000" placeholder="例: 100000">
+                            </div>
+                            <div class="settings-item">
+                                <label>月末現金残高（円）</label>
+                                <input type="number" id="actualCashBalance" class="settings-input" min="0" step="10000" placeholder="例: 1500000">
+                            </div>
+                        </div>
+                        <div class="actual-input-row">
+                            <div class="settings-item" style="flex: 1;">
+                                <label>メモ（任意）</label>
+                                <input type="text" id="actualNotes" class="settings-input" maxlength="200" placeholder="例: ボーナス月、特別支出あり">
+                            </div>
+                        </div>
+                        <div class="actual-input-row">
+                            <button id="saveActualBtn" class="btn btn-primary">実績を保存</button>
+                            <button id="refreshActualBtn" class="btn btn-secondary">一覧を更新</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 目標達成率ゲージ (Feature 4) -->
+                <div class="card actual-goal-card" id="goalGaugeSection" style="display:none;">
+                    <div class="goal-gauge-header">
+                        <h3>🎯 目標達成率</h3>
+                        <button id="refreshGoalBtn" class="btn btn-secondary btn-sm">更新</button>
+                    </div>
+                    <div class="goal-gauges-grid" id="goalGaugesGrid"></div>
+                </div>
+
+                <!-- 実績ベース将来予測 (Feature 1) -->
+                <div class="card actual-predict-card">
+                    <div class="predict-header">
+                        <h3>🔮 実績ベース将来予測</h3>
+                        <button id="runActualPredictBtn" class="btn btn-primary">実績ベースで再予測</button>
+                    </div>
+                    <p class="actual-description" style="margin: 0.5rem 0 0;">最新の実績現金残高を起点に、将来の資産推移を調整します。</p>
+                    <div id="actualPredictInfo" style="display:none;" class="predict-info-bar"></div>
+                    <div id="actualPredictChart" style="margin-top:1rem;"></div>
+                </div>
+
+                <!-- 計画vs実績サマリーカード -->
+                <div id="actualSummaryCards" class="actual-summary-cards" style="display:none;">
+                    <div class="card actual-stat-card">
+                        <h4>入力済み月数</h4>
+                        <p class="amount" id="actualMonthsCount">-</p>
+                    </div>
+                    <div class="card actual-stat-card">
+                        <h4>累計収入差（実績－計画）</h4>
+                        <p class="amount" id="actualIncomeDiff">-</p>
+                    </div>
+                    <div class="card actual-stat-card">
+                        <h4>累計支出差（実績－計画）</h4>
+                        <p class="amount" id="actualExpensesDiff">-</p>
+                    </div>
+                    <div class="card actual-stat-card">
+                        <h4>累計投資差（実績－計画）</h4>
+                        <p class="amount" id="actualInvestmentDiff">-</p>
+                    </div>
+                </div>
+
+                <!-- 計画vs実績グラフ -->
+                <div class="chart-container">
+                    <h2>収入：計画 vs 実績</h2>
+                    <div id="actualIncomeChart"></div>
+                </div>
+                <div class="chart-container">
+                    <h2>支出：計画 vs 実績</h2>
+                    <div id="actualExpensesChart"></div>
+                </div>
+                <div class="chart-container">
+                    <h2>投資額：計画 vs 実績</h2>
+                    <div id="actualInvestmentChart"></div>
+                </div>
+
+                <!-- 実績一覧テーブル -->
+                <div class="card" style="margin-top: 2rem;">
+                    <h3>実績入力履歴</h3>
+                    <div id="actualRecordsList" class="actual-records-table-wrapper">
+                        <p style="color: var(--text-secondary);">実績データがありません。上のフォームから入力してください。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===================== データ編集ビュー ===================== -->
+            <section id="editor-view" class="view">
+                <div class="editor-header">
+                    <h2>✏️ データ編集</h2>
+                    <p class="actual-description">給与・ライフイベント・生活費などのパラメータを直接編集できます。変更は即座に再計算に反映されます。</p>
+                </div>
+
+                <!-- ── タブナビ ── -->
+                <div class="editor-tabs">
+                    <button class="editor-tab active" data-editor="salary">💴 給与・収入</button>
+                    <button class="editor-tab" data-editor="events">📅 ライフイベント</button>
+                    <button class="editor-tab" data-editor="expenses">🛒 生活費</button>
+                </div>
+
+                <!-- ══ 給与エディタ ══ -->
+                <div id="editor-salary" class="editor-panel active">
+                    <!-- 一括設定パネル -->
+                    <div class="card editor-range-card">
+                        <h3>範囲一括設定</h3>
+                        <div class="editor-range-row">
+                            <div class="settings-item">
+                                <label>対象: 開始年齢</label>
+                                <input type="number" id="salaryRangeStart" class="settings-input" min="25" max="65" value="25">
+                            </div>
+                            <span class="range-sep">〜</span>
+                            <div class="settings-item">
+                                <label>終了年齢</label>
+                                <input type="number" id="salaryRangeEnd" class="settings-input" min="25" max="65" value="30">
+                            </div>
+                            <div class="settings-item">
+                                <label>月給（円）</label>
+                                <input type="number" id="salaryRangeAmount" class="settings-input" min="0" step="10000" placeholder="例: 350000">
+                            </div>
+                            <div class="settings-item">
+                                <label>ボーナス倍数</label>
+                                <input type="number" id="salaryRangeBonus" class="settings-input" min="0" max="20" step="0.5" value="-1" placeholder="-1で変更なし">
+                            </div>
+                            <div class="settings-item">
+                                <label>変更方式</label>
+                                <select id="salaryChangeType" class="settings-input">
+                                    <option value="absolute">月給を固定値に</option>
+                                    <option value="percent">月給を%変更</option>
+                                </select>
+                            </div>
+                            <div class="settings-item" style="align-self:flex-end;">
+                                <button id="applyRangeSalaryBtn" class="btn btn-primary">一括適用</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 給与曲線グラフ -->
+                    <div class="chart-container" style="margin-bottom:1rem;">
+                        <h3 style="margin-bottom:0.5rem;">給与カーブプレビュー</h3>
+                        <div id="salaryCurveChart"></div>
+                    </div>
+
+                    <!-- 年齢別テーブル -->
+                    <div class="card editor-table-card">
+                        <div class="editor-table-header">
+                            <h3>年齢別給与テーブル</h3>
+                            <span class="editor-hint">行をクリックして個別編集 / 編集後 Enter または ✔ で確定</span>
+                        </div>
+                        <div class="editor-table-wrapper">
+                            <table id="salaryTable" class="editor-table">
+                                <thead>
+                                    <tr><th>年齢</th><th>月給（円）</th><th>ボーナス倍数</th><th>年収試算</th><th>操作</th></tr>
+                                </thead>
+                                <tbody id="salaryTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ══ ライフイベントエディタ ══ -->
+                <div id="editor-events" class="editor-panel">
+                    <!-- 既定イベント編集 -->
+                    <div class="card editor-events-card">
+                        <h3>既定イベント</h3>
+                        <div class="preset-events-grid" id="presetEventsGrid">
+                            <!-- JSで描画 -->
+                        </div>
+                    </div>
+
+                    <!-- カスタムイベント追加 -->
+                    <div class="card editor-events-card">
+                        <h3>カスタムイベント追加</h3>
+                        <div class="custom-event-form">
+                            <div class="settings-item">
+                                <label>イベント名</label>
+                                <input type="text" id="customEventName" class="settings-input" maxlength="50" placeholder="例: 車購入、海外旅行">
+                            </div>
+                            <div class="settings-item">
+                                <label>発生年齢</label>
+                                <input type="number" id="customEventAge" class="settings-input" min="25" max="65" placeholder="例: 35">
+                            </div>
+                            <div class="settings-item">
+                                <label>費用（円）</label>
+                                <input type="number" id="customEventCost" class="settings-input" min="0" step="10000" placeholder="例: 3000000">
+                            </div>
+                            <div class="settings-item">
+                                <label>メモ</label>
+                                <input type="text" id="customEventDesc" class="settings-input" maxlength="100" placeholder="任意">
+                            </div>
+                            <div class="settings-item" style="align-self:flex-end;">
+                                <button id="addCustomEventBtn" class="btn btn-primary">追加</button>
+                            </div>
+                        </div>
+
+                        <div id="customEventsList" style="margin-top:1.5rem;"></div>
+                    </div>
+                </div>
+
+                <!-- ══ 生活費エディタ ══ -->
+                <div id="editor-expenses" class="editor-panel">
+                    <div class="editor-phase-hint">
+                        <p>各フェーズの月次生活費を編集できます。項目を変更後、フェーズ右上の「保存」ボタンで反映されます。</p>
+                    </div>
+                    <div id="phaseExpensesAccordion"></div>
+                </div>
+
+            </section>
         </main>
     </div>
 
@@ -397,6 +704,10 @@
                             <label>インフレ率（教育費） (%)</label>
                             <input type="number" id="settingInflationEducation" min="0" max="10" step="0.1" class="settings-input">
                         </div>
+                        <div class="settings-item">
+                            <label>持ち株奨励金率 (%)</label>
+                            <input type="number" id="settingIncentiveRate" min="0" max="100" step="1" class="settings-input">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -407,6 +718,81 @@
             </div>
         </div>
     </div>
+
+    <!-- モンテカルロビュー -->
+    <section id="montecarlo-view" class="view">
+        <div class="mc-header">
+            <h2>🎲 モンテカルロ シミュレーション</h2>
+            <p class="mc-description">
+                投資リターンを確率分布でランダム化してN回シミュレーション。<br>
+                最悪ケース・中央値・最良ケースの資産推移と最終資産の分布を可視化します。
+            </p>
+        </div>
+
+        <!-- パラメータ設定 -->
+        <div class="card mc-params-card">
+            <div class="mc-params-grid">
+                <div class="settings-item">
+                    <label>シミュレーション回数</label>
+                    <select id="mcNSimulations" class="settings-input">
+                        <option value="100">100回（高速・目安確認）</option>
+                        <option value="300" selected>300回（標準）</option>
+                        <option value="1000">1000回（高精度・低速）</option>
+                    </select>
+                </div>
+                <div class="settings-item">
+                    <label>リターン変動幅（標準偏差）</label>
+                    <select id="mcReturnStd" class="settings-input">
+                        <option value="0.05">±5%（低リスク想定）</option>
+                        <option value="0.08" selected>±8%（標準・株式混合）</option>
+                        <option value="0.12">±12%（高リスク・株式中心）</option>
+                        <option value="0.18">±18%（超高リスク）</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mc-run-buttons">
+                <button class="btn btn-primary mc-run-btn" id="mcRunPlanBtn">
+                    📋 プラン通りで実行
+                </button>
+                <button class="btn btn-mc-actual mc-run-btn" id="mcRunActualBtn">
+                    📊 実績ベースで実行
+                </button>
+                <button class="btn btn-secondary" id="mcClearBtn">🗑 クリア</button>
+            </div>
+            <div id="mcLoadingBar" class="mc-loading-bar" style="display:none;">
+                <div class="spinner"></div>
+                <span id="mcLoadingText">シミュレーション実行中...</span>
+            </div>
+        </div>
+
+        <!-- 結果なし状態 -->
+        <div id="mcEmptyState" class="mc-empty-state">
+            <p>上の「実行」ボタンを押してシミュレーションを開始してください。<br>
+               プラン通りと実績ベースの両方を実行すると、同じグラフ上で比較できます。</p>
+        </div>
+
+        <!-- 結果セクション -->
+        <div id="mcResultSection" style="display:none;">
+
+            <!-- サマリーカード -->
+            <div id="mcSummaryCards" class="mc-summary-grid"></div>
+
+            <!-- 資産推移グラフ -->
+            <div class="chart-container">
+                <h3>資産推移（信頼区間バンド）</h3>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.5rem;">
+                    濃い帯: 25〜75パーセンタイル　薄い帯: 5〜95パーセンタイル　実線: 中央値(p50)　破線: 平均
+                </p>
+                <div id="mcChart"></div>
+            </div>
+
+            <!-- 最終資産分布 -->
+            <div class="chart-container">
+                <h3>65歳時点 資産分布（パーセンタイル比較）</h3>
+                <div id="mcDistributionChart"></div>
+            </div>
+        </div>
+    </section>
 
     <!-- JavaScriptファイル -->
     <script src="js/app.js"></script>

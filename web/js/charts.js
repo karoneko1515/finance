@@ -831,4 +831,292 @@ function renderAssetsPieCharts(assetsData) {
     Plotly.newPlot('assetsEndPieChart', [endTrace], endLayout, config);
 }
 
+// ==================== 計画 vs 実績グラフ ====================
+
+/**
+ * 計画値と実績値の比較グラフを3系統（収入・支出・投資）描画
+ * @param {Array} comparisonData - get_plan_vs_actual() の返り値
+ */
+function renderActualComparisonCharts(comparisonData) {
+    if (!comparisonData || comparisonData.length === 0) return;
+
+    const isDark = document.body.classList.contains('dark-mode');
+    const textColor  = isDark ? '#f9fafb' : '#111827';
+    const gridColor  = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+    const plotBg     = isDark ? '#1f2937' : '#ffffff';
+    const paperBg    = isDark ? '#111827' : '#ffffff';
+    const config = { responsive: true, displayModeBar: false };
+
+    // 全年の計画値
+    const ages = comparisonData.map(d => `${d.age}歳 (${d.year})`);
+    const planIncome     = comparisonData.map(d => Math.round(d.plan_income / 10000));
+    const planExpenses   = comparisonData.map(d => Math.round(d.plan_expenses / 10000));
+    const planInvestment = comparisonData.map(d => Math.round(d.plan_investment / 10000));
+
+    // 実績値（未入力はnull → グラフに表示されない）
+    const actualIncome     = comparisonData.map(d => d.actual_income     != null ? Math.round(d.actual_income / 10000)     : null);
+    const actualExpenses   = comparisonData.map(d => d.actual_expenses   != null ? Math.round(d.actual_expenses / 10000)   : null);
+    const actualInvestment = comparisonData.map(d => d.actual_investment  != null ? Math.round(d.actual_investment / 10000) : null);
+
+    // 乖離（差分）
+    const incomeDiff     = comparisonData.map(d => d.income_diff     != null ? Math.round(d.income_diff / 10000)     : null);
+    const expensesDiff   = comparisonData.map(d => d.expenses_diff   != null ? Math.round(d.expenses_diff / 10000)   : null);
+    const investmentDiff = comparisonData.map(d => d.investment_diff != null ? Math.round(d.investment_diff / 10000) : null);
+
+    const baseLayout = (title) => ({
+        title: { text: title, font: { color: textColor } },
+        xaxis: { tickfont: { color: textColor, size: 10 }, gridcolor: gridColor, tickangle: -45 },
+        yaxis: { title: '万円', tickfont: { color: textColor }, gridcolor: gridColor },
+        yaxis2: { title: '乖離（万円）', overlaying: 'y', side: 'right', tickfont: { color: textColor }, zeroline: true, zerolinecolor: gridColor },
+        plot_bgcolor: plotBg,
+        paper_bgcolor: paperBg,
+        font: { color: textColor },
+        legend: { font: { color: textColor } },
+        barmode: 'overlay',
+        margin: { t: 50, r: 80, b: 100, l: 60 }
+    });
+
+    // ---- 収入グラフ ----
+    Plotly.newPlot('actualIncomeChart', [
+        { type: 'bar', name: '計画収入', x: ages, y: planIncome,    marker: { color: 'rgba(59,130,246,0.3)' }, yaxis: 'y' },
+        { type: 'bar', name: '実績収入', x: ages, y: actualIncome,  marker: { color: 'rgba(16,185,129,0.8)' }, yaxis: 'y' },
+        { type: 'scatter', mode: 'lines+markers', name: '乖離', x: ages, y: incomeDiff,
+          line: { color: '#f59e0b', width: 2 }, marker: { size: 6 }, yaxis: 'y2' }
+    ], baseLayout('収入: 計画 vs 実績'), config);
+
+    // ---- 支出グラフ ----
+    Plotly.newPlot('actualExpensesChart', [
+        { type: 'bar', name: '計画支出', x: ages, y: planExpenses,    marker: { color: 'rgba(239,68,68,0.3)' }, yaxis: 'y' },
+        { type: 'bar', name: '実績支出', x: ages, y: actualExpenses,  marker: { color: 'rgba(239,68,68,0.8)' }, yaxis: 'y' },
+        { type: 'scatter', mode: 'lines+markers', name: '乖離', x: ages, y: expensesDiff,
+          line: { color: '#f59e0b', width: 2 }, marker: { size: 6 }, yaxis: 'y2' }
+    ], baseLayout('支出: 計画 vs 実績'), config);
+
+    // ---- 投資グラフ ----
+    Plotly.newPlot('actualInvestmentChart', [
+        { type: 'bar', name: '計画投資', x: ages, y: planInvestment,    marker: { color: 'rgba(139,92,246,0.3)' }, yaxis: 'y' },
+        { type: 'bar', name: '実績投資', x: ages, y: actualInvestment,  marker: { color: 'rgba(139,92,246,0.8)' }, yaxis: 'y' },
+        { type: 'scatter', mode: 'lines+markers', name: '乖離', x: ages, y: investmentDiff,
+          line: { color: '#f59e0b', width: 2 }, marker: { size: 6 }, yaxis: 'y2' }
+    ], baseLayout('投資額: 計画 vs 実績'), config);
+}
+
+// ========== 実績ベース将来予測チャート ==========
+function renderActualPredictionChart(data, fromAge, elementId) {
+    if (!data || data.length === 0) return;
+
+    const ages = data.map(d => d.age);
+    const planAssets = data.map(d => d.assets_end);
+    const adjAssets  = data.map(d => d.assets_end_adjusted);
+
+    const tracePlan = {
+        x: ages, y: planAssets,
+        type: 'scatter', mode: 'lines',
+        name: '計画資産',
+        line: { color: '#94a3b8', width: 2, dash: 'dot' },
+        hovertemplate: '%{x}歳 (計画): %{y:,.0f}円<extra></extra>'
+    };
+
+    const traceAdj = {
+        x: ages, y: adjAssets,
+        type: 'scatter', mode: 'lines+markers',
+        name: '実績調整後資産',
+        line: { color: '#3b82f6', width: 3 },
+        marker: { size: 5, color: '#1d4ed8' },
+        hovertemplate: '%{x}歳 (調整後): %{y:,.0f}円<extra></extra>'
+    };
+
+    // 実績基準点
+    const basePoint = data.find(d => d.age === fromAge);
+    const traceBase = basePoint ? {
+        x: [fromAge], y: [basePoint.assets_end_adjusted],
+        type: 'scatter', mode: 'markers',
+        name: '実績基準点',
+        marker: { size: 12, color: '#10b981', symbol: 'star' },
+        hovertemplate: `${fromAge}歳 (実績基準): %{y:,.0f}円<extra></extra>`
+    } : null;
+
+    const traces = traceBase ? [tracePlan, traceAdj, traceBase] : [tracePlan, traceAdj];
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: {
+            title: '年齢',
+            dtick: 5,
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        yaxis: {
+            title: '資産額 (円)',
+            tickformat: ',.0f',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        legend: { orientation: 'h', y: -0.15 },
+        hovermode: 'x unified',
+        margin: { t: 30, r: 30, b: 60, l: 80 }
+    };
+
+    Plotly.newPlot(elementId, traces, layout, { responsive: true, displaylogo: false });
+}
+
+// ========== 給与曲線チャート（エディタ用） ==========
+function renderSalaryCurveChart(salaryData) {
+    if (!salaryData || salaryData.length === 0) return;
+    const el = document.getElementById('salaryCurveChart');
+    if (!el) return;
+
+    const ages    = salaryData.map(d => d.age);
+    const annual  = salaryData.map(d => d.annual_income);
+    const base    = salaryData.map(d => d.base_salary);
+
+    const traceAnnual = {
+        x: ages, y: annual,
+        type: 'scatter', mode: 'lines+markers',
+        name: '年収（基本給＋賞与）',
+        line: { color: '#3b82f6', width: 3 },
+        marker: {
+            size: salaryData.map(d => d.is_anchor ? 10 : 5),
+            color: salaryData.map(d => d.is_anchor ? '#f59e0b' : '#3b82f6'),
+            symbol: salaryData.map(d => d.is_anchor ? 'diamond' : 'circle')
+        },
+        hovertemplate: '%{x}歳: %{y:,.0f}円<extra></extra>'
+    };
+
+    const traceBase = {
+        x: ages, y: base,
+        type: 'scatter', mode: 'lines',
+        name: '基本給',
+        line: { color: '#94a3b8', width: 1.5, dash: 'dot' },
+        hovertemplate: '%{x}歳 基本給: %{y:,.0f}円<extra></extra>'
+    };
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: {
+            title: '年齢',
+            dtick: 5,
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        yaxis: {
+            title: '金額 (円)',
+            tickformat: ',.0f',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        legend: { orientation: 'h', y: -0.2 },
+        hovermode: 'x unified',
+        margin: { t: 20, r: 20, b: 60, l: 80 }
+    };
+
+    Plotly.newPlot('salaryCurveChart', [traceAnnual, traceBase], layout, {
+        responsive: true, displaylogo: false
+    });
+}
+
+// ========== モンテカルロ 資産推移グラフ ==========
+/**
+ * モンテカルロ結果を信頼区間バンド付きで描画
+ * @param {Array} results - [{label, color, data: {ages,p5,p25,p50,p75,p95,mean}}, ...]
+ * @param {string} elementId
+ */
+function renderMonteCarloChart(results, elementId) {
+    if (!results || results.length === 0) return;
+
+    const traces = [];
+
+    results.forEach(({ label, color, data }) => {
+        const ages = data.ages;
+        const rev  = (arr) => arr.slice().reverse();
+        const revAges = ages.slice().reverse();
+
+        // 5-95% バンド（薄い）
+        traces.push({
+            x: [...ages, ...revAges],
+            y: [...data.p95, ...rev(data.p5)],
+            fill: 'toself',
+            fillcolor: color.band95,
+            line: { color: 'transparent' },
+            name: `5-95% (${label})`,
+            showlegend: true,
+            hoverinfo: 'skip',
+        });
+
+        // 25-75% バンド（濃い）
+        traces.push({
+            x: [...ages, ...revAges],
+            y: [...data.p75, ...rev(data.p25)],
+            fill: 'toself',
+            fillcolor: color.band75,
+            line: { color: 'transparent' },
+            name: `25-75% (${label})`,
+            showlegend: true,
+            hoverinfo: 'skip',
+        });
+
+        // 中央値ライン
+        traces.push({
+            x: ages, y: data.p50,
+            type: 'scatter', mode: 'lines',
+            name: `中央値 (${label})`,
+            line: { color: color.median, width: 2.5 },
+            hovertemplate: `%{x}歳 中央値(${label}): %{y:,.0f}円<extra></extra>`,
+        });
+
+        // 平均ライン（破線）
+        traces.push({
+            x: ages, y: data.mean,
+            type: 'scatter', mode: 'lines',
+            name: `平均 (${label})`,
+            line: { color: color.mean, width: 1.5, dash: 'dot' },
+            hovertemplate: `%{x}歳 平均(${label}): %{y:,.0f}円<extra></extra>`,
+        });
+    });
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: { title: '年齢', dtick: 5, gridcolor: isDarkMode ? '#374151' : '#e5e7eb' },
+        yaxis: { title: '資産額 (円)', tickformat: ',.0f', gridcolor: isDarkMode ? '#374151' : '#e5e7eb' },
+        hovermode: 'x unified',
+        legend: { orientation: 'h', y: -0.2 },
+        margin: { t: 20, r: 30, b: 80, l: 80 },
+    };
+
+    Plotly.newPlot(elementId, traces, layout, { responsive: true, displaylogo: false });
+}
+
+// ========== モンテカルロ 最終資産分布グラフ ==========
+/**
+ * 各シナリオの最終資産パーセンタイルをグループ棒グラフで表示
+ * @param {Array} results - [{label, color, data}, ...]
+ * @param {string} elementId
+ */
+function renderMCDistributionChart(results, elementId) {
+    if (!results || results.length === 0) return;
+
+    const percentileLabels = ['最悪 (p5)', '悪い (p25)', '中央 (p50)', '良い (p75)', '最良 (p95)', '平均'];
+    const keys = ['final_p5', 'final_p25', 'final_p50', 'final_p75', 'final_p95', 'final_mean'];
+
+    const traces = results.map(({ label, color, data }) => ({
+        x: percentileLabels,
+        y: keys.map(k => data[k] || 0),
+        type: 'bar',
+        name: label,
+        marker: { color: color.median, opacity: 0.8 },
+        hovertemplate: `%{x} (${label}): %{y:,.0f}円<extra></extra>`,
+    }));
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        barmode: 'group',
+        xaxis: { gridcolor: isDarkMode ? '#374151' : '#e5e7eb' },
+        yaxis: { title: '資産額 (円)', tickformat: ',.0f', gridcolor: isDarkMode ? '#374151' : '#e5e7eb' },
+        legend: { orientation: 'h', y: -0.2 },
+        margin: { t: 20, r: 30, b: 80, l: 80 },
+    };
+
+    Plotly.newPlot(elementId, traces, layout, { responsive: true, displaylogo: false });
+}
+
 console.log('charts.js ロード完了');
