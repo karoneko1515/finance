@@ -1031,6 +1031,8 @@ async function openSettingsModal() {
                 (data.inflation_settings.living_expenses_rate * 100).toFixed(1);
             document.getElementById('settingInflationEducation').value =
                 (data.inflation_settings.education_rate * 100).toFixed(1);
+            document.getElementById('settingIncentiveRate').value =
+                Math.round(data.investment_settings.company_stock.incentive_rate * 100);
 
             // モーダルを表示
             document.getElementById('settingsModal').style.display = 'block';
@@ -1103,6 +1105,7 @@ async function saveAndRecalculate() {
         const educationReturn = parseFloat(document.getElementById('settingEducationReturn').value);
         const inflationLiving = parseFloat(document.getElementById('settingInflationLiving').value);
         const inflationEducation = parseFloat(document.getElementById('settingInflationEducation').value);
+        const incentiveRate = parseFloat(document.getElementById('settingIncentiveRate').value);
 
         for (const [label, val] of [['NISAリターン', nisaReturn], ['特定口座リターン', taxableReturn], ['教育資金リターン', educationReturn]]) {
             if (isNaN(val) || val < 0 || val > 50) {
@@ -1117,6 +1120,11 @@ async function saveAndRecalculate() {
                 showLoading(false);
                 return;
             }
+        }
+        if (isNaN(incentiveRate) || incentiveRate < 0 || incentiveRate > 100) {
+            alert('持ち株奨励金率は 0〜100% の範囲で指定してください');
+            showLoading(false);
+            return;
         }
 
         // 検証済みの値を反映
@@ -1138,6 +1146,7 @@ async function saveAndRecalculate() {
         planData.investment_settings.education_fund.expected_return = educationReturn / 100;
         planData.inflation_settings.living_expenses_rate = inflationLiving / 100;
         planData.inflation_settings.education_rate = inflationEducation / 100;
+        planData.investment_settings.company_stock.incentive_rate = incentiveRate / 100;
 
         // 設定を保存
         const updateResult = await eel.update_plan_data(planData)();
