@@ -102,12 +102,17 @@ class LifePlanCalculator:
 
         spouse_income = self.loader.get_spouse_income()
 
-        if age < 48:
-            return spouse_income.get("28-47", 0)
-        elif age < 65:
-            return spouse_income.get("48-64", 0)
-        else:
-            return spouse_income.get("65-99", 0)
+        # キーを "FROM-TO" 形式として動的にパース（任意の範囲に対応）
+        for key, amount in sorted(spouse_income.items(), key=lambda x: int(x[0].split('-')[0])):
+            try:
+                parts = key.split('-')
+                from_age = int(parts[0])
+                to_age = int(parts[1])
+                if from_age <= age <= to_age:
+                    return amount
+            except (ValueError, IndexError):
+                continue
+        return 0
 
     def get_pension_for_age(self, age):
         """

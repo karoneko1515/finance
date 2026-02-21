@@ -514,6 +514,7 @@
                     <button class="editor-tab active" data-editor="salary">💴 給与・収入</button>
                     <button class="editor-tab" data-editor="events">📅 ライフイベント</button>
                     <button class="editor-tab" data-editor="expenses">🛒 生活費</button>
+                    <button class="editor-tab" data-editor="settings">⚙️ 設定</button>
                 </div>
 
                 <!-- ══ 給与エディタ ══ -->
@@ -622,100 +623,106 @@
                     <div id="phaseExpensesAccordion"></div>
                 </div>
 
+                <!-- ══ 設定エディタ ══ -->
+                <div id="editor-settings" class="editor-panel">
+                    <div class="card" style="padding: 1.5rem; margin-bottom: 1rem;">
+
+                        <p class="settings-section-title">プラン基本設定</p>
+                        <div class="settings-grid">
+                            <div class="settings-item">
+                                <label>開始年齢</label>
+                                <input type="number" id="cfgStartAge" min="18" max="30" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>終了年齢</label>
+                                <input type="number" id="cfgEndAge" min="55" max="80" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>結婚年齢</label>
+                                <input type="number" id="cfgMarriageAge" min="18" max="60" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>第一子誕生年齢</label>
+                                <input type="number" id="cfgFirstChild" min="18" max="60" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>第二子誕生年齢</label>
+                                <input type="number" id="cfgSecondChild" min="18" max="60" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>住宅購入年齢</label>
+                                <input type="number" id="cfgHomePurchase" min="20" max="70" class="settings-input">
+                            </div>
+                        </div>
+
+                        <p class="settings-section-title">配偶者収入（年齢別・月額）</p>
+                        <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:0.8rem;">
+                            年齢範囲ごとに配偶者の月収を設定できます。行の追加・削除も可能です。
+                        </p>
+                        <table class="spouse-range-table">
+                            <thead>
+                                <tr>
+                                    <th>開始年齢</th>
+                                    <th>〜</th>
+                                    <th>終了年齢</th>
+                                    <th>月額（円）</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="spouseRangeBody"></tbody>
+                        </table>
+                        <button id="addSpouseRangeBtn" class="btn btn-secondary btn-sm" style="margin-bottom:1rem;">＋ 行を追加</button>
+
+                        <p class="settings-section-title">投資設定</p>
+                        <div class="settings-grid">
+                            <div class="settings-item">
+                                <label>NISA期待リターン (%)</label>
+                                <input type="number" id="cfgNisaReturn" min="0" max="20" step="0.1" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>特定口座期待リターン (%)</label>
+                                <input type="number" id="cfgTaxableReturn" min="0" max="20" step="0.1" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>教育資金期待リターン (%)</label>
+                                <input type="number" id="cfgEducationReturn" min="0" max="20" step="0.1" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>インフレ率（生活費） (%)</label>
+                                <input type="number" id="cfgInflationLiving" min="0" max="20" step="0.1" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>インフレ率（教育費） (%)</label>
+                                <input type="number" id="cfgInflationEducation" min="0" max="20" step="0.1" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>持ち株奨励金率 (%)</label>
+                                <input type="number" id="cfgIncentiveRate" min="0" max="100" step="1" class="settings-input">
+                            </div>
+                        </div>
+
+                        <div class="settings-save-bar">
+                            <span class="save-hint">設定を変更後、「保存して再計算」をクリックしてください</span>
+                            <button id="resetSettingsBtn" class="btn btn-secondary">初期値に戻す</button>
+                            <button id="saveSettingsBtn" class="btn btn-primary">保存して再計算</button>
+                        </div>
+                    </div>
+                </div>
+
             </section>
         </main>
     </div>
 
-    <!-- 設定モーダル -->
-    <div id="settingsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>シミュレーション設定</h2>
-                <button class="modal-close" onclick="closeSettingsModal()">&times;</button>
+    <!-- 進捗オーバーレイ -->
+    <div id="progressOverlay">
+        <div class="progress-card">
+            <div class="progress-spinner-wrap"><div class="spinner"></div></div>
+            <p class="progress-title" id="progressTitle">計算中...</p>
+            <p class="progress-message" id="progressMessage">しばらくお待ちください</p>
+            <div class="progress-bar-track">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
             </div>
-            <div class="modal-body">
-                <div class="settings-section">
-                    <h3>プラン設定</h3>
-                    <p class="settings-info">
-                        設定を変更して「再計算」をクリックすると、新しい設定でシミュレーションが実行されます。
-                    </p>
-                    <div class="settings-grid">
-                        <div class="settings-item">
-                            <label>開始年齢</label>
-                            <input type="number" id="settingStartAge" min="20" max="30" class="settings-input">
-                        </div>
-                        <div class="settings-item">
-                            <label>終了年齢</label>
-                            <input type="number" id="settingEndAge" min="60" max="70" class="settings-input">
-                        </div>
-                        <div class="settings-item">
-                            <label>結婚年齢</label>
-                            <input type="number" id="settingMarriageAge" min="20" max="40" class="settings-input">
-                        </div>
-                        <div class="settings-item">
-                            <label>第一子誕生</label>
-                            <input type="number" id="settingFirstChild" min="25" max="45" class="settings-input">
-                        </div>
-                        <div class="settings-item">
-                            <label>第二子誕生</label>
-                            <input type="number" id="settingSecondChild" min="25" max="45" class="settings-input">
-                        </div>
-                        <div class="settings-item">
-                            <label>住宅購入年齢</label>
-                            <input type="number" id="settingHomePurchase" min="30" max="60" class="settings-input">
-                        </div>
-                    </div>
-
-                    <h3 style="margin-top: 2rem;">配偶者収入</h3>
-                    <div class="settings-grid">
-                        <div class="settings-item">
-                            <label>28-47歳 (月額・円)</label>
-                            <input type="number" id="settingSpouseIncome1" min="0" max="500000" step="10000" class="settings-input">
-                        </div>
-                        <div class="settings-item">
-                            <label>48-64歳 (月額・円)</label>
-                            <input type="number" id="settingSpouseIncome2" min="0" max="500000" step="10000" class="settings-input">
-                        </div>
-                        <div class="settings-item">
-                            <label>65歳以降 (月額・円)</label>
-                            <input type="number" id="settingSpouseIncome3" min="0" max="500000" step="10000" class="settings-input">
-                        </div>
-                    </div>
-
-                    <h3 style="margin-top: 2rem;">投資設定</h3>
-                    <div class="settings-grid">
-                        <div class="settings-item">
-                            <label>NISA期待リターン (%)</label>
-                            <input type="number" id="settingNisaReturn" min="0" max="20" step="0.1" class="settings-input">
-                        </div>
-                        <div class="settings-item">
-                            <label>特定口座期待リターン (%)</label>
-                            <input type="number" id="settingTaxableReturn" min="0" max="20" step="0.1" class="settings-input">
-                        </div>
-                        <div class="settings-item">
-                            <label>教育資金期待リターン (%)</label>
-                            <input type="number" id="settingEducationReturn" min="0" max="20" step="0.1" class="settings-input">
-                        </div>
-                        <div class="settings-item">
-                            <label>インフレ率（生活費） (%)</label>
-                            <input type="number" id="settingInflationLiving" min="0" max="10" step="0.1" class="settings-input">
-                        </div>
-                        <div class="settings-item">
-                            <label>インフレ率（教育費） (%)</label>
-                            <input type="number" id="settingInflationEducation" min="0" max="10" step="0.1" class="settings-input">
-                        </div>
-                        <div class="settings-item">
-                            <label>持ち株奨励金率 (%)</label>
-                            <input type="number" id="settingIncentiveRate" min="0" max="100" step="1" class="settings-input">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeSettingsModal()">閉じる</button>
-                <button class="btn btn-secondary" onclick="resetToDefault()">初期値に戻す</button>
-                <button class="btn btn-primary" onclick="saveAndRecalculate()">再計算</button>
-            </div>
+            <p class="progress-percent" id="progressPercent">0%</p>
         </div>
     </div>
 
@@ -758,10 +765,6 @@
                     📊 実績ベースで実行
                 </button>
                 <button class="btn btn-secondary" id="mcClearBtn">🗑 クリア</button>
-            </div>
-            <div id="mcLoadingBar" class="mc-loading-bar" style="display:none;">
-                <div class="spinner"></div>
-                <span id="mcLoadingText">シミュレーション実行中...</span>
             </div>
         </div>
 

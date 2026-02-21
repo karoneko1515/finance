@@ -58,8 +58,11 @@ function setupEventListeners() {
     // CSVエクスポートボタン
     document.getElementById('exportBtn').addEventListener('click', exportToCSV);
 
-    // 設定ボタン
-    document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
+    // 設定ボタン → エディタの設定タブに遷移
+    document.getElementById('settingsBtn').addEventListener('click', () => {
+        switchView('editor');
+        switchEditorTab('settings');
+    });
 
     // シナリオ比較実行ボタン
     const scenarioBtn = document.getElementById('runScenarioBtn');
@@ -122,14 +125,17 @@ function setupEventListeners() {
     // データ編集タブ切り替え
     document.querySelectorAll('.editor-tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
-            const target = e.currentTarget.dataset.editor;
-            document.querySelectorAll('.editor-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.editor-panel').forEach(p => p.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-            const panel = document.getElementById(`editor-${target}`);
-            if (panel) panel.classList.add('active');
+            switchEditorTab(e.currentTarget.dataset.editor);
         });
     });
+
+    // 設定タブ: 保存・リセットボタン
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    if (saveSettingsBtn) saveSettingsBtn.addEventListener('click', saveSettingsFromEditor);
+    const resetSettingsBtn = document.getElementById('resetSettingsBtn');
+    if (resetSettingsBtn) resetSettingsBtn.addEventListener('click', resetSettingsToDefault);
+    const addSpouseRangeBtn = document.getElementById('addSpouseRangeBtn');
+    if (addSpouseRangeBtn) addSpouseRangeBtn.addEventListener('click', addSpouseRangeRow);
 
     // 給与範囲一括適用ボタン
     const applyRangeSalaryBtn = document.getElementById('applyRangeSalaryBtn');
@@ -268,7 +274,7 @@ function loadDarkModePreference() {
 
 // ========== シミュレーション実行 ==========
 async function runSimulation() {
-    showLoading(true);
+    showProgress('シミュレーション計算中', '40年分のキャッシュフローを計算しています...', 3000);
 
     try {
         const result = await eel.run_simulation()();
@@ -290,16 +296,16 @@ async function runSimulation() {
             renderAssetsBreakdownChart();
             loadRetirementIncomeAnalysis();
 
-            showLoading(false);
+            hideProgress();
         } else {
             console.error('シミュレーションエラー:', result.error);
-            alert('シミュレーションに失敗しました: ' + result.error);
-            showLoading(false);
+            hideProgress();
+            showToast('シミュレーションに失敗しました: ' + result.error);
         }
     } catch (error) {
         console.error('通信エラー:', error);
-        alert('サーバーとの通信に失敗しました');
-        showLoading(false);
+        hideProgress();
+        showToast('サーバーとの通信に失敗しました');
     }
 }
 
@@ -608,7 +614,7 @@ async function exportToCSV() {
 
 // ========== シナリオ比較実行 ==========
 async function runScenarioComparison() {
-    showLoading(true);
+    showProgress('シナリオ比較計算中', '複数シナリオのシミュレーションを実行しています...', 4000);
 
     try {
         // シナリオ設定を取得
@@ -655,15 +661,15 @@ async function runScenarioComparison() {
             // 保存ボタンを表示
             document.getElementById('saveScenarioBtn').style.display = 'inline-block';
 
-            showLoading(false);
+            hideProgress();
         } else {
-            alert('シナリオ比較に失敗しました: ' + result.error);
-            showLoading(false);
+            hideProgress();
+            showToast('シナリオ比較に失敗しました: ' + result.error);
         }
     } catch (error) {
         console.error('シナリオ比較エラー:', error);
-        alert('シナリオ比較に失敗しました');
-        showLoading(false);
+        hideProgress();
+        showToast('シナリオ比較に失敗しました');
     }
 }
 
@@ -949,6 +955,62 @@ function showLoading(show) {
     }
 }
 
+// ========== 進捗オーバーレイ ==========
+let _progressTimer = null;
+let _progressValue = 0;
+
+function showProgress(title, message, estimatedMs = 3000) {
+    const overlay = document.getElementById('progressOverlay');
+    const titleEl = document.getElementById('progressTitle');
+    const msgEl   = document.getElementById('progressMessage');
+    const fill    = document.getElementById('progressBarFill');
+    const pct     = document.getElementById('progressPercent');
+
+    if (!overlay) return;
+    titleEl.textContent = title;
+    msgEl.textContent   = message;
+
+    // バー初期化
+    fill.style.transition = 'none';
+    fill.style.width = '0%';
+    if (pct) pct.textContent = '0%';
+    _progressValue = 0;
+
+    overlay.classList.add('active');
+
+    // タイマーで疑似進捗を更新（1%ずつ、estimatedMsを90%到達時間とする）
+    if (_progressTimer) clearInterval(_progressTimer);
+    const intervalMs = estimatedMs / 90;
+    _progressTimer = setInterval(() => {
+        if (_progressValue < 89) {
+            _progressValue += 1;
+            fill.style.transition = 'width 0.3s ease';
+            fill.style.width = _progressValue + '%';
+            if (pct) pct.textContent = _progressValue + '%';
+        }
+    }, intervalMs);
+}
+
+function hideProgress() {
+    if (_progressTimer) { clearInterval(_progressTimer); _progressTimer = null; }
+    const overlay = document.getElementById('progressOverlay');
+    const fill    = document.getElementById('progressBarFill');
+    const pct     = document.getElementById('progressPercent');
+    if (!overlay) return;
+
+    // 100%に完成させてからフェードアウト
+    fill.style.transition = 'width 0.25s ease';
+    fill.style.width = '100%';
+    if (pct) pct.textContent = '100%';
+
+    setTimeout(() => {
+        overlay.classList.remove('active');
+        fill.style.transition = 'none';
+        fill.style.width = '0%';
+        if (pct) pct.textContent = '0%';
+    }, 350);
+}
+
 function getPlotlyTheme() {
     return isDarkMode ? {
         paper_bgcolor: '#1f2937',
@@ -999,211 +1061,176 @@ function renderEventsList() {
     container.innerHTML = html;
 }
 
-// ========== 設定モーダル ==========
-async function openSettingsModal() {
+// ========== エディタタブ切り替え ==========
+function switchEditorTab(target) {
+    document.querySelectorAll('.editor-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.editor-panel').forEach(p => p.classList.remove('active'));
+    const btn = document.querySelector(`.editor-tab[data-editor="${target}"]`);
+    if (btn) btn.classList.add('active');
+    const panel = document.getElementById(`editor-${target}`);
+    if (panel) panel.classList.add('active');
+    if (target === 'settings') loadSettingsEditor();
+}
+
+// ========== 設定エディタ ==========
+async function loadSettingsEditor() {
     try {
         const result = await eel.get_plan_data()();
+        if (!result.success) { showToast('設定の読み込みに失敗しました'); return; }
+        const data = result.data;
 
-        if (result.success) {
-            const data = result.data;
+        // 基本設定
+        document.getElementById('cfgStartAge').value    = data.basic_info.start_age;
+        document.getElementById('cfgEndAge').value      = data.basic_info.end_age;
+        document.getElementById('cfgMarriageAge').value = data.basic_info.marriage_age;
+        document.getElementById('cfgFirstChild').value  = data.basic_info.first_child_birth_age;
+        document.getElementById('cfgSecondChild').value = data.basic_info.second_child_birth_age;
+        document.getElementById('cfgHomePurchase').value = data.life_events.home_purchase.age;
 
-            // 基本情報をinputフィールドに設定
-            document.getElementById('settingStartAge').value = data.basic_info.start_age;
-            document.getElementById('settingEndAge').value = data.basic_info.end_age;
-            document.getElementById('settingMarriageAge').value = data.basic_info.marriage_age;
-            document.getElementById('settingFirstChild').value = data.basic_info.first_child_birth_age;
-            document.getElementById('settingSecondChild').value = data.basic_info.second_child_birth_age;
-            document.getElementById('settingHomePurchase').value = data.life_events.home_purchase.age;
+        // 配偶者収入テーブル
+        renderSpouseRangeTable(data.spouse_income);
 
-            // 配偶者収入をinputフィールドに設定
-            document.getElementById('settingSpouseIncome1').value = data.spouse_income['28-47'];
-            document.getElementById('settingSpouseIncome2').value = data.spouse_income['48-64'];
-            document.getElementById('settingSpouseIncome3').value = data.spouse_income['65-99'];
-
-            // 投資設定をinputフィールドに設定（パーセント表示）
-            document.getElementById('settingNisaReturn').value =
-                (data.investment_settings.nisa.expected_return * 100).toFixed(1);
-            document.getElementById('settingTaxableReturn').value =
-                (data.investment_settings.taxable_account.expected_return * 100).toFixed(1);
-            document.getElementById('settingEducationReturn').value =
-                (data.investment_settings.education_fund.expected_return * 100).toFixed(1);
-            document.getElementById('settingInflationLiving').value =
-                (data.inflation_settings.living_expenses_rate * 100).toFixed(1);
-            document.getElementById('settingInflationEducation').value =
-                (data.inflation_settings.education_rate * 100).toFixed(1);
-            document.getElementById('settingIncentiveRate').value =
-                Math.round(data.investment_settings.company_stock.incentive_rate * 100);
-
-            // モーダルを表示
-            document.getElementById('settingsModal').style.display = 'block';
-        } else {
-            alert('設定の読み込みに失敗しました: ' + result.error);
-        }
-    } catch (error) {
-        console.error('設定データ取得エラー:', error);
-        alert('設定の読み込みに失敗しました');
+        // 投資設定
+        document.getElementById('cfgNisaReturn').value =
+            (data.investment_settings.nisa.expected_return * 100).toFixed(1);
+        document.getElementById('cfgTaxableReturn').value =
+            (data.investment_settings.taxable_account.expected_return * 100).toFixed(1);
+        document.getElementById('cfgEducationReturn').value =
+            (data.investment_settings.education_fund.expected_return * 100).toFixed(1);
+        document.getElementById('cfgInflationLiving').value =
+            (data.inflation_settings.living_expenses_rate * 100).toFixed(1);
+        document.getElementById('cfgInflationEducation').value =
+            (data.inflation_settings.education_rate * 100).toFixed(1);
+        document.getElementById('cfgIncentiveRate').value =
+            Math.round(data.investment_settings.company_stock.incentive_rate * 100);
+    } catch (err) {
+        console.error('設定読み込みエラー:', err);
+        showToast('設定の読み込みに失敗しました');
     }
 }
 
-function closeSettingsModal() {
-    document.getElementById('settingsModal').style.display = 'none';
+// 配偶者収入テーブルの描画
+function renderSpouseRangeTable(spouseIncome) {
+    const tbody = document.getElementById('spouseRangeBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    // {"28-47": 80000, ...} → [{from, to, amount}] に変換
+    const rows = Object.entries(spouseIncome)
+        .map(([key, amount]) => {
+            const [from, to] = key.split('-').map(Number);
+            return { from, to, amount };
+        })
+        .sort((a, b) => a.from - b.from);
+
+    rows.forEach(row => tbody.appendChild(createSpouseRangeRow(row.from, row.to, row.amount)));
 }
 
-async function saveAndRecalculate() {
-    try {
-        showLoading(true);
+function createSpouseRangeRow(from = '', to = '', amount = 0) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="number" class="spouse-range-input" placeholder="例: 28" value="${from}" min="18" max="99"></td>
+        <td style="color:var(--text-secondary);">〜</td>
+        <td><input type="number" class="spouse-range-input" placeholder="例: 47" value="${to}" min="18" max="99"></td>
+        <td><input type="number" class="spouse-range-input spouse-monthly-input" placeholder="月額（円）" value="${amount}" min="0" step="10000"></td>
+        <td><button class="btn-spouse-del">削除</button></td>
+    `;
+    tr.querySelector('.btn-spouse-del').addEventListener('click', () => tr.remove());
+    return tr;
+}
 
-        // 現在のプランデータを取得
-        const result = await eel.get_plan_data()();
+function addSpouseRangeRow() {
+    const tbody = document.getElementById('spouseRangeBody');
+    if (!tbody) return;
+    tbody.appendChild(createSpouseRangeRow());
+}
 
-        if (!result.success) {
-            alert('設定の取得に失敗しました');
-            showLoading(false);
-            return;
+function collectSpouseRangeData() {
+    const tbody = document.getElementById('spouseRangeBody');
+    if (!tbody) return {};
+    const result = {};
+    tbody.querySelectorAll('tr').forEach(tr => {
+        const inputs = tr.querySelectorAll('input');
+        if (inputs.length < 3) return;
+        const from   = parseInt(inputs[0].value);
+        const to     = parseInt(inputs[1].value);
+        const amount = parseInt(inputs[2].value) || 0;
+        if (!isNaN(from) && !isNaN(to) && from <= to) {
+            result[`${from}-${to}`] = amount;
         }
+    });
+    return result;
+}
 
+async function saveSettingsFromEditor() {
+    try {
+        const result = await eel.get_plan_data()();
+        if (!result.success) { showToast('設定の取得に失敗しました'); return; }
         const planData = result.data;
 
-        // フォームから新しい値を取得
-        const startAge = parseInt(document.getElementById('settingStartAge').value);
-        const endAge = parseInt(document.getElementById('settingEndAge').value);
-        const marriageAge = parseInt(document.getElementById('settingMarriageAge').value);
-        const firstChild = parseInt(document.getElementById('settingFirstChild').value);
-        const secondChild = parseInt(document.getElementById('settingSecondChild').value);
-        const homePurchase = parseInt(document.getElementById('settingHomePurchase').value);
+        const startAge    = parseInt(document.getElementById('cfgStartAge').value);
+        const endAge      = parseInt(document.getElementById('cfgEndAge').value);
+        const marriageAge = parseInt(document.getElementById('cfgMarriageAge').value);
+        const firstChild  = parseInt(document.getElementById('cfgFirstChild').value);
+        const secondChild = parseInt(document.getElementById('cfgSecondChild').value);
+        const homePurchase = parseInt(document.getElementById('cfgHomePurchase').value);
 
-        // バリデーション: 年齢の整合性チェック
         if (isNaN(startAge) || isNaN(endAge) || startAge < 18 || endAge > 100 || startAge >= endAge) {
-            alert('開始年齢・終了年齢が不正です（18〜100歳の範囲で、開始 < 終了にしてください）');
-            showLoading(false);
-            return;
-        }
-        if (isNaN(marriageAge) || marriageAge < startAge || marriageAge > endAge) {
-            alert(`結婚年齢は ${startAge}〜${endAge} 歳の範囲で指定してください`);
-            showLoading(false);
-            return;
-        }
-        if (isNaN(firstChild) || firstChild < startAge || firstChild > endAge) {
-            alert(`第一子誕生年齢は ${startAge}〜${endAge} 歳の範囲で指定してください`);
-            showLoading(false);
-            return;
-        }
-        if (isNaN(secondChild) || secondChild < startAge || secondChild > endAge || secondChild < firstChild) {
-            alert(`第二子誕生年齢は第一子 (${firstChild}歳) 以降かつ ${endAge} 歳以下で指定してください`);
-            showLoading(false);
-            return;
-        }
-        if (isNaN(homePurchase) || homePurchase < startAge || homePurchase > endAge) {
-            alert(`住宅購入年齢は ${startAge}〜${endAge} 歳の範囲で指定してください`);
-            showLoading(false);
+            showToast('開始年齢・終了年齢が不正です');
             return;
         }
 
-        // バリデーション: 投資リターン (0〜50%)
-        const nisaReturn = parseFloat(document.getElementById('settingNisaReturn').value);
-        const taxableReturn = parseFloat(document.getElementById('settingTaxableReturn').value);
-        const educationReturn = parseFloat(document.getElementById('settingEducationReturn').value);
-        const inflationLiving = parseFloat(document.getElementById('settingInflationLiving').value);
-        const inflationEducation = parseFloat(document.getElementById('settingInflationEducation').value);
-        const incentiveRate = parseFloat(document.getElementById('settingIncentiveRate').value);
+        const nisaReturn        = parseFloat(document.getElementById('cfgNisaReturn').value);
+        const taxableReturn     = parseFloat(document.getElementById('cfgTaxableReturn').value);
+        const educationReturn   = parseFloat(document.getElementById('cfgEducationReturn').value);
+        const inflationLiving   = parseFloat(document.getElementById('cfgInflationLiving').value);
+        const inflationEducation = parseFloat(document.getElementById('cfgInflationEducation').value);
+        const incentiveRate     = parseFloat(document.getElementById('cfgIncentiveRate').value);
 
-        for (const [label, val] of [['NISAリターン', nisaReturn], ['特定口座リターン', taxableReturn], ['教育資金リターン', educationReturn]]) {
-            if (isNaN(val) || val < 0 || val > 50) {
-                alert(`${label}は 0〜50% の範囲で指定してください`);
-                showLoading(false);
-                return;
-            }
-        }
-        for (const [label, val] of [['生活費インフレ率', inflationLiving], ['教育費インフレ率', inflationEducation]]) {
-            if (isNaN(val) || val < 0 || val > 20) {
-                alert(`${label}は 0〜20% の範囲で指定してください`);
-                showLoading(false);
-                return;
-            }
-        }
-        if (isNaN(incentiveRate) || incentiveRate < 0 || incentiveRate > 100) {
-            alert('持ち株奨励金率は 0〜100% の範囲で指定してください');
-            showLoading(false);
-            return;
-        }
-
-        // 検証済みの値を反映
         planData.basic_info.start_age = startAge;
-        planData.basic_info.end_age = endAge;
+        planData.basic_info.end_age   = endAge;
         planData.basic_info.marriage_age = marriageAge;
-        planData.basic_info.first_child_birth_age = firstChild;
+        planData.basic_info.first_child_birth_age  = firstChild;
         planData.basic_info.second_child_birth_age = secondChild;
-        planData.life_events.home_purchase.age = homePurchase;
+        planData.life_events.home_purchase.age     = homePurchase;
 
-        // 配偶者収入を更新
-        planData.spouse_income['28-47'] = parseInt(document.getElementById('settingSpouseIncome1').value) || 0;
-        planData.spouse_income['48-64'] = parseInt(document.getElementById('settingSpouseIncome2').value) || 0;
-        planData.spouse_income['65-99'] = parseInt(document.getElementById('settingSpouseIncome3').value) || 0;
+        // 配偶者収入（テーブルから収集）
+        planData.spouse_income = collectSpouseRangeData();
 
-        // 投資設定を更新（パーセントから小数に変換）
         planData.investment_settings.nisa.expected_return = nisaReturn / 100;
         planData.investment_settings.taxable_account.expected_return = taxableReturn / 100;
-        planData.investment_settings.education_fund.expected_return = educationReturn / 100;
-        planData.inflation_settings.living_expenses_rate = inflationLiving / 100;
-        planData.inflation_settings.education_rate = inflationEducation / 100;
+        planData.investment_settings.education_fund.expected_return  = educationReturn / 100;
+        planData.inflation_settings.living_expenses_rate  = inflationLiving / 100;
+        planData.inflation_settings.education_rate        = inflationEducation / 100;
         planData.investment_settings.company_stock.incentive_rate = incentiveRate / 100;
 
-        // 設定を保存
         const updateResult = await eel.update_plan_data(planData)();
-
         if (updateResult.success) {
-            // モーダルを閉じる
-            closeSettingsModal();
-
-            // シミュレーションを再実行
             await runSimulation();
-
-            alert('設定を更新し、再計算しました');
+            showToast('設定を保存して再計算しました ✓');
         } else {
-            alert('設定の保存に失敗しました: ' + updateResult.error);
-            showLoading(false);
+            showToast('設定の保存に失敗しました');
         }
-    } catch (error) {
-        console.error('設定保存エラー:', error);
-        alert('設定の保存に失敗しました');
-        showLoading(false);
+    } catch (err) {
+        console.error('設定保存エラー:', err);
+        showToast('設定の保存に失敗しました');
     }
 }
 
-async function resetToDefault() {
-    if (!confirm('設定を初期値に戻しますか？')) {
-        return;
-    }
-
+async function resetSettingsToDefault() {
+    if (!confirm('設定を初期値に戻しますか？')) return;
     try {
-        showLoading(true);
-
         const result = await eel.reset_plan_to_default()();
-
         if (result.success) {
-            // モーダルを閉じる
-            closeSettingsModal();
-
-            // シミュレーションを再実行
+            await loadSettingsEditor();
             await runSimulation();
-
-            alert('設定を初期値に戻しました');
+            showToast('設定を初期値に戻しました ✓');
         } else {
-            alert('リセットに失敗しました: ' + result.error);
-            showLoading(false);
+            showToast('リセットに失敗しました');
         }
-    } catch (error) {
-        console.error('リセットエラー:', error);
-        alert('リセットに失敗しました');
-        showLoading(false);
-    }
-}
-
-// モーダル外クリックで閉じる
-window.onclick = function(event) {
-    const modal = document.getElementById('settingsModal');
-    if (event.target === modal) {
-        closeSettingsModal();
+    } catch (err) {
+        console.error('リセットエラー:', err);
+        showToast('リセットに失敗しました');
     }
 }
 
@@ -1537,6 +1564,11 @@ async function loadEditorView() {
         loadEventsEditor(),
         loadExpensesEditor()
     ]);
+    // アクティブタブが設定なら設定も読み込む
+    const activeTab = document.querySelector('.editor-tab.active');
+    if (activeTab && activeTab.dataset.editor === 'settings') {
+        await loadSettingsEditor();
+    }
 }
 
 // ───────────────────────────────────────
@@ -1973,10 +2005,17 @@ function renderPhaseExpensesAccordion(phases) {
 
 /** 編集後にシミュレーションデータを再取得してダッシュボードを更新 */
 async function refreshAfterEdit() {
-    const result = await eel.run_simulation()();
-    if (result.success) {
-        simulationData = result.data;
-        updateDashboard();
+    showProgress('再計算中', 'データ変更を反映しています...', 2000);
+    try {
+        const result = await eel.run_simulation()();
+        if (result.success) {
+            simulationData = result.data;
+            updateDashboard();
+        }
+        hideProgress();
+    } catch (err) {
+        hideProgress();
+        console.error('refreshAfterEdit エラー:', err);
     }
 }
 
@@ -2071,10 +2110,15 @@ async function runMonteCarlo(baseType) {
     const n   = parseInt(document.getElementById('mcNSimulations').value);
     const std = parseFloat(document.getElementById('mcReturnStd').value);
 
-    // ローディング表示
-    document.getElementById('mcLoadingBar').style.display = 'flex';
-    document.getElementById('mcLoadingText').textContent  =
-        `${baseType === 'actual' ? '実績ベース' : 'プラン通り'} シミュレーション実行中 (${n}回)...`;
+    const label = baseType === 'actual' ? '実績ベース' : 'プラン通り';
+    // 回数に応じた推定時間 (100回≒2s, 300回≒5s, 1000回≒15s)
+    const estimatedMs = n <= 100 ? 2000 : n <= 300 ? 5000 : 15000;
+
+    showProgress(
+        `モンテカルロ計算中（${label}）`,
+        `${n}回のシミュレーションを実行しています... しばらくお待ちください`,
+        estimatedMs
+    );
     document.getElementById('mcRunPlanBtn').disabled   = true;
     document.getElementById('mcRunActualBtn').disabled = true;
 
@@ -2082,17 +2126,19 @@ async function runMonteCarlo(baseType) {
         const result = await eel.run_monte_carlo_simulation(n, std, baseType)();
 
         if (!result.success) {
-            alert('モンテカルロシミュレーション失敗: ' + result.error);
+            hideProgress();
+            showToast('モンテカルロシミュレーション失敗: ' + result.error);
             return;
         }
 
         mcResults[baseType] = result.data;
+        hideProgress();
         renderMonteCarloView();
     } catch (err) {
         console.error('モンテカルロエラー:', err);
-        alert('モンテカルロシミュレーション中にエラーが発生しました');
+        hideProgress();
+        showToast('モンテカルロシミュレーション中にエラーが発生しました');
     } finally {
-        document.getElementById('mcLoadingBar').style.display  = 'none';
         document.getElementById('mcRunPlanBtn').disabled   = false;
         document.getElementById('mcRunActualBtn').disabled = false;
     }

@@ -1797,3 +1797,213 @@ body.dark-mode .irregular-expense-item {
     margin-top: 0.8rem;
     line-height: 1.6;
 }
+
+/* ================================================================
+   進捗オーバーレイ（計算中）
+   ================================================================ */
+#progressOverlay {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    align-items: center;
+    justify-content: center;
+}
+#progressOverlay.active { display: flex; }
+
+.progress-card {
+    background: var(--bg-card);
+    border-radius: 1rem;
+    padding: 2.5rem 3rem;
+    width: 420px;
+    max-width: 90vw;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-color);
+}
+
+.progress-spinner-wrap { margin-bottom: 1.2rem; }
+.progress-spinner-wrap .spinner {
+    width: 36px;
+    height: 36px;
+    border-width: 3px;
+    margin: 0 auto;
+}
+
+.progress-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.4rem;
+}
+
+.progress-message {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    margin: 0 0 1.5rem;
+    min-height: 1.2em;
+}
+
+.progress-bar-track {
+    height: 8px;
+    background: var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: var(--primary-color);
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.progress-percent {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ================================================================
+   設定エディタパネル（データ編集タブ内）
+   ================================================================ */
+#editor-settings .settings-section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 1.5rem 0 0.8rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border-color);
+}
+#editor-settings .settings-section-title:first-child { margin-top: 0; }
+
+#editor-settings .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+#editor-settings .settings-item label {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    display: block;
+    margin-bottom: 0.3rem;
+    font-weight: 500;
+}
+
+#editor-settings .settings-input {
+    width: 100%;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    box-sizing: border-box;
+}
+#editor-settings .settings-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.settings-save-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.2rem 1.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+}
+.settings-save-bar .save-hint {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    flex: 1;
+}
+
+/* 配偶者収入レンジテーブル */
+.spouse-range-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    margin-bottom: 0.8rem;
+}
+.spouse-range-table th {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 0.5rem 0.8rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border-color);
+}
+.spouse-range-table td {
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+    text-align: center;
+    color: var(--text-primary);
+}
+.spouse-range-table .spouse-range-input {
+    width: 80px;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    text-align: right;
+}
+.spouse-range-table .spouse-range-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+.spouse-range-table .spouse-monthly-input {
+    width: 130px;
+}
+.btn-spouse-del {
+    padding: 0.2rem 0.6rem;
+    font-size: 0.78rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.btn-spouse-del:hover { border-color: #ef4444; color: #ef4444; }
+
+/* ================================================================
+   データ編集テキスト色（強制ホワイト対応）
+   ================================================================ */
+#editor-view {
+    color: var(--text-primary);
+}
+#editor-view .editor-table td {
+    color: var(--text-primary);
+}
+#editor-view .editor-table-header h3,
+#editor-view .editor-table-card h3 {
+    color: var(--text-primary);
+}
+#editor-view .editor-range-card h3 {
+    color: var(--text-primary);
+}
+#editor-view .editor-events-card h3 {
+    color: var(--text-primary);
+}
+#editor-view .preset-event-header {
+    color: var(--text-primary);
+}
+#editor-view .phase-card-header {
+    color: var(--text-primary);
+}
+.editor-header h2 {
+    color: var(--text-primary);
+}
