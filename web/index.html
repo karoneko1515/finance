@@ -95,11 +95,12 @@
                         <div>
                             <h2>🏡 老後の月・年間使用可能額</h2>
                             <p class="retirement-income-desc">
-                                65歳時の資産を均等に取り崩した場合の試算。年金・配偶者収入も含めた合計額を表示します。
+                                配当資産（自社株・特定口座）は元本を維持しながら配当収入を受け取り、<br>
+                                NISA・現金は年金現価方式で均等取り崩しします。
                             </p>
                         </div>
                         <div class="retirement-return-control">
-                            <label>老後の運用利回り</label>
+                            <label>NISA・現金の運用利回り</label>
                             <select id="retirementReturnRate" class="settings-input">
                                 <option value="0">0%（保守的・現金のみ）</option>
                                 <option value="0.01">1%</option>
@@ -120,20 +121,22 @@
                                 <tr>
                                     <th>目標寿命</th>
                                     <th>取り崩し期間</th>
-                                    <th>月間取り崩し額</th>
+                                    <th>NISA等 取り崩し</th>
+                                    <th>＋ 配当収入</th>
                                     <th>＋ 年金等</th>
                                     <th class="highlight-col">月間合計</th>
                                     <th class="highlight-col">年間合計</th>
                                 </tr>
                             </thead>
                             <tbody id="retirementIncomeRows">
-                                <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">計算中...</td></tr>
+                                <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">計算中...</td></tr>
                             </tbody>
                         </table>
                     </div>
                     <p class="retirement-note">
-                        ※ 取り崩し額は年金現価方式（定額年金）で算出。<br>
-                        ※ 「年金等」は設定された公的年金＋配偶者収入（65歳以降）の合計です。
+                        ※ 配当収入: (自社株 × 3% + 特定口座 × 4%) × (1 − 20.315%) の税引後月額（元本維持）<br>
+                        ※ NISA等取り崩し: NISA・現金・教育資金を年金現価方式（定額年金）で均等に取り崩した月額<br>
+                        ※ 年金等: 設定された公的年金 ＋ 配偶者収入（65歳以降）の合計
                     </p>
                 </div>
             </section>

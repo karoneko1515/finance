@@ -1015,11 +1015,14 @@ def get_retirement_income_analysis(post_return_rate=0.02):
     """
     65歳以降の月・年間使用可能額を算出
 
-    取り崩し方式: 年金現価方式 (PMT = PV × r / (1-(1+r)^-n))
-    ゼロリターン時は単純均等割り
+    資産を2種類に分けて計算:
+      (A) 配当資産 (自社株 + 特定口座高配当) → 元本維持、配当収入を毎年受け取る
+      (B) 非配当資産 (NISA + 現金 + 教育資金) → 年金現価方式で均等取り崩し
+
+    月間使用可能額合計 = (B)の取り崩し + 配当(A) + 公的年金 + 配偶者収入
 
     Args:
-        post_return_rate (float): 老後の投資リターン率（年率）
+        post_return_rate (float): 非配当資産の老後運用利回り（年率）
 
     Returns:
         dict: target_agesごとの月・年間使用可能額
@@ -1028,21 +1031,39 @@ def get_retirement_income_analysis(post_return_rate=0.02):
         if not calculator.yearly_data:
             calculator.simulate_30_years()
 
-        final_assets   = calculator.yearly_data[-1]["assets_end"]
+        last_year      = calculator.yearly_data[-1]
+        final_assets   = last_year["assets_end"]
         retirement_age = calculator.basic_info.get("end_age", 65)
 
-        # 年金月額
-        pension_cfg    = calculator.loader.get_pension()
-        pension_start  = pension_cfg.get("start_age", 65)
+        # ── 配当資産の算出 ──────────────────────────────────────────
+        company_stock_65 = last_year.get("company_stock", 0)
+        taxable_65       = last_year.get("taxable_account", 0)
+        inv              = calculator.investment_settings
+        company_yield    = inv.get("company_stock",    {}).get("dividend_yield", 0.03)
+        taxable_yield    = inv.get("taxable_account",  {}).get("dividend_yield", 0.04)
+        TAX_RATE         = 0.20315          # 配当課税（源泉徴収）
+
+        annual_dividend  = (company_stock_65 * company_yield
+                            + taxable_65 * taxable_yield) * (1 - TAX_RATE)
+        monthly_dividend = annual_dividend / 12
+
+        dividend_assets    = company_stock_65 + taxable_65  # 元本維持
+        withdrawal_assets  = max(final_assets - dividend_assets, 0)  # 取り崩し対象
+
+        # ── 公的年金 ────────────────────────────────────────────────
+        pension_cfg     = calculator.loader.get_pension()
+        pension_start   = pension_cfg.get("start_age", 65)
         pension_monthly = pension_cfg.get("monthly_amount", 0) if pension_start <= retirement_age else 0
 
-        # 配偶者年金（65歳以降の配偶者収入）
+        # ── 配偶者収入（65歳以降）───────────────────────────────────
         spouse_cfg    = calculator.loader.get_spouse_income()
-        spouse_monthly = spouse_cfg.get("65-99", 0) / 12 if isinstance(spouse_cfg.get("65-99"), (int, float)) else 0
+        spouse_monthly = (spouse_cfg.get("65-99", 0) / 12
+                          if isinstance(spouse_cfg.get("65-99"), (int, float)) else 0)
 
-        # 非投資収入合計（月額）
-        extra_monthly = pension_monthly + spouse_monthly
+        # ── 固定収入合計（取り崩し額に依存しない部分）──────────────
+        fixed_monthly = monthly_dividend + pension_monthly + spouse_monthly
 
+        # ── 各目標寿命シナリオ ──────────────────────────────────────
         target_ages = [80, 85, 90, 95, 100]
         scenarios   = []
 
@@ -1052,36 +1073,41 @@ def get_retirement_income_analysis(post_return_rate=0.02):
                 continue
             n_months = n_years * 12
 
-            if post_return_rate <= 0 or final_assets <= 0:
-                monthly_withdrawal = max(final_assets, 0) / n_months
+            if post_return_rate <= 0 or withdrawal_assets <= 0:
+                monthly_withdrawal = max(withdrawal_assets, 0) / n_months
             else:
-                r = post_return_rate / 12            # 月次利率
-                monthly_withdrawal = (final_assets * r) / (1 - (1 + r) ** (-n_months))
+                r = post_return_rate / 12
+                monthly_withdrawal = (withdrawal_assets * r) / (1 - (1 + r) ** (-n_months))
 
-            total_monthly = monthly_withdrawal + extra_monthly
+            total_monthly = monthly_withdrawal + fixed_monthly
 
             scenarios.append({
-                "target_age":           target_age,
-                "n_years":              n_years,
-                "monthly_withdrawal":   round(monthly_withdrawal),
-                "monthly_pension":      round(pension_monthly),
-                "monthly_spouse":       round(spouse_monthly),
-                "extra_monthly":        round(extra_monthly),
-                "total_monthly":        round(total_monthly),
-                "total_yearly":         round(total_monthly * 12),
-                "withdrawal_yearly":    round(monthly_withdrawal * 12),
+                "target_age":         target_age,
+                "n_years":            n_years,
+                "monthly_withdrawal": round(monthly_withdrawal),
+                "monthly_dividend":   round(monthly_dividend),
+                "monthly_pension":    round(pension_monthly),
+                "monthly_spouse":     round(spouse_monthly),
+                "fixed_monthly":      round(fixed_monthly),
+                "total_monthly":      round(total_monthly),
+                "total_yearly":       round(total_monthly * 12),
+                "withdrawal_yearly":  round(monthly_withdrawal * 12),
             })
 
         return {
             "success": True,
             "data": {
-                "final_assets":     final_assets,
-                "retirement_age":   retirement_age,
-                "pension_monthly":  pension_monthly,
-                "spouse_monthly":   spouse_monthly,
-                "extra_monthly":    extra_monthly,
-                "post_return_rate": post_return_rate,
-                "scenarios":        scenarios,
+                "final_assets":      final_assets,
+                "dividend_assets":   dividend_assets,
+                "withdrawal_assets": withdrawal_assets,
+                "retirement_age":    retirement_age,
+                "monthly_dividend":  round(monthly_dividend),
+                "annual_dividend":   round(annual_dividend),
+                "pension_monthly":   round(pension_monthly),
+                "spouse_monthly":    round(spouse_monthly),
+                "fixed_monthly":     round(fixed_monthly),
+                "post_return_rate":  post_return_rate,
+                "scenarios":         scenarios,
             },
         }
     except Exception as e:

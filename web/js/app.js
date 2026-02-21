@@ -2004,14 +2004,17 @@ function renderRetirementIncomeSection(d) {
     const baseRow = document.getElementById('retirementIncomeBase');
     if (baseRow) {
         const items = [
-            { label: '65歳時 資産',   value: formatCurrency(d.final_assets) },
-            { label: '月額 公的年金', value: formatCurrency(d.pension_monthly) },
+            { label: '65歳時 総資産',       value: formatCurrency(d.final_assets) },
+            { label: '配当資産（元本維持）', value: formatCurrency(d.dividend_assets) },
+            { label: '取り崩し資産',         value: formatCurrency(d.withdrawal_assets) },
+            { label: '月額 配当収入（税後）',value: formatCurrency(d.monthly_dividend) },
+            { label: '月額 公的年金',        value: formatCurrency(d.pension_monthly) },
         ];
         if (d.spouse_monthly > 0) {
             items.push({ label: '月額 配偶者収入', value: formatCurrency(d.spouse_monthly) });
         }
-        items.push({ label: '年金等 月額合計', value: formatCurrency(d.extra_monthly) });
-        items.push({ label: '老後の運用利回り', value: `${(d.post_return_rate * 100).toFixed(0)}%` });
+        items.push({ label: '固定収入合計（月）', value: formatCurrency(d.fixed_monthly) });
+        items.push({ label: 'NISA等利回り', value: `${(d.post_return_rate * 100).toFixed(0)}%` });
 
         baseRow.innerHTML = items.map(it => `
             <div class="rb-item">
@@ -2030,7 +2033,8 @@ function renderRetirementIncomeSection(d) {
             <td>${s.target_age}歳${isStd ? ' ★' : ''}</td>
             <td>${s.n_years}年間</td>
             <td>${formatCurrency(s.monthly_withdrawal)}</td>
-            <td>${formatCurrency(s.extra_monthly)}</td>
+            <td>${formatCurrency(s.monthly_dividend)}</td>
+            <td>${formatCurrency(s.monthly_pension + s.monthly_spouse)}</td>
             <td class="highlight-col">${formatCurrency(s.total_monthly)}</td>
             <td class="highlight-col">${formatCurrency(s.total_yearly)}</td>
         </tr>`;
