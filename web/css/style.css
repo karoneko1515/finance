@@ -1465,10 +1465,51 @@ body.dark-mode .irregular-expense-item {
     padding: 1rem 1.2rem;
 }
 
+/* ゴールゲージ：計画/実績ソースバッジ（セクションヘッダー用） */
+.goal-source-badge {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.6rem;
+    vertical-align: middle;
+}
+
+.badge-actual {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-plan {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+/* 個別ゲージアイテムのラベル行（ラベル + 小バッジ） */
+.goal-gauge-label-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.6rem;
+}
+
+.gauge-src-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.1rem 0.45rem;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.gauge-src-actual { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.gauge-src-plan   { background: rgba(148, 163, 184, 0.12); color: #94a3b8; }
+
 .goal-gauge-label {
     font-weight: 700;
     font-size: 0.9rem;
-    margin-bottom: 0.6rem;
     color: var(--text-primary);
 }
 

@@ -163,9 +163,10 @@ def update_plan_data(plan_json):
 
         data_loader.save_user_plan(plan_data)
 
-        # 計算機を再初期化
+        # 計算機を再初期化して即シミュレーション実行
         global calculator
         calculator = LifePlanCalculator(data_loader)
+        calculator.simulate_30_years()
 
         return {
             "success": True,
@@ -830,42 +831,59 @@ def get_goal_achievement():
         if not calculator.yearly_data:
             return {"success": False, "error": "シミュレーションを先に実行してください"}
 
+        from datetime import date as _date
         records = scenario_db.get_all_actual_records()
+        has_actual = bool(records)
         latest = records[-1] if records else None
-        actual_cash = latest["cash_balance_actual"] if latest else 0
-        actual_age  = latest["age"] if latest else calculator.basic_info.get("start_age", 25)
+
+        start_age = calculator.basic_info.get("start_age", 25)
+        end_age   = calculator.basic_info.get("end_age",   65)
+
+        # 現在の推定年齢: 実績があれば最新レコードの年齢、なければ日付から推定
+        if latest:
+            actual_age = latest["age"]
+        else:
+            if records:
+                r0 = records[0]
+                sim_start_year = r0["year"] - (r0["age"] - start_age)
+            else:
+                sim_start_year = _date.today().year
+            actual_age = min(end_age, start_age + (_date.today().year - sim_start_year))
 
         # 65歳時の計画最終資産
         final_entry  = calculator.yearly_data[-1]
         target_final = final_entry.get("assets_end", 0)
 
-        # 現在の計画資産
-        current_plan = next(
-            (d.get("assets_end", 0) for d in calculator.yearly_data if d["age"] == actual_age),
-            calculator.yearly_data[0].get("assets_end", 0)
+        # 現在年齢の計画エントリを取得（なければ最初の年）
+        current_year_data = next(
+            (d for d in calculator.yearly_data if d["age"] == actual_age),
+            calculator.yearly_data[0]
         )
+        current_plan = current_year_data.get("assets_end", 0)
 
         # 緊急予備費目標（月支出×6ヶ月分）
-        current_year_data = next(
-            (d for d in calculator.yearly_data if d["age"] == actual_age), None
-        )
-        monthly_expenses_est = (current_year_data.get("expenses_total", 0) / 12) if current_year_data else 0
+        monthly_expenses_est = current_year_data.get("expenses_total", 0) / 12
         emergency_target = monthly_expenses_est * 6
+
+        # 緊急予備費の現在値: 実績があれば実績現金、なければ計画現金残高
+        if has_actual:
+            emergency_current = latest["cash_balance_actual"]
+        else:
+            emergency_current = current_year_data.get("cash", 0)
 
         # NISA積立進捗（計画累計）
         nisa_limit = (
             calculator.investment_settings["nisa"].get("tsumitate_limit", 12000000)
             + calculator.investment_settings["nisa"].get("growth_limit", 6000000)
         )
-        nisa_balance_current = next(
-            (d.get("nisa_tsumitate", 0) + d.get("nisa_growth", 0)
-             for d in calculator.yearly_data if d["age"] == actual_age),
-            0
+        nisa_balance_current = (
+            current_year_data.get("nisa_tsumitate", 0)
+            + current_year_data.get("nisa_growth", 0)
         )
 
         # 退職準備進捗（現計画資産 / 最終目標）
         retirement_rate = min(100, round(current_plan / target_final * 100, 1)) if target_final else 0
-        emergency_rate  = min(100, round(actual_cash / emergency_target * 100, 1)) if emergency_target else 0
+        emergency_rate  = min(100, round(emergency_current / emergency_target * 100, 1)) if emergency_target else 0
         nisa_rate       = min(100, round(nisa_balance_current / nisa_limit * 100, 1)) if nisa_limit else 0
 
         # 老後2000万問題: 65歳時の資産が2000万以上かどうか
@@ -874,37 +892,77 @@ def get_goal_achievement():
 
         return {
             "success": True,
+            "has_actual": has_actual,
+            "current_age": actual_age,
             "data": {
                 "retirement": {
                     "label": "退職資産目標",
                     "current": current_plan,
                     "target": target_final,
                     "rate": retirement_rate,
-                    "unit": "円"
+                    "unit": "円",
+                    "source": "plan"
                 },
                 "emergency": {
-                    "label": "緊急予備費 (6ヶ月分)",
-                    "current": actual_cash,
+                    "label": "緊急予備費 (支出6ヶ月分)",
+                    "current": emergency_current,
                     "target": round(emergency_target),
                     "rate": emergency_rate,
-                    "unit": "円"
+                    "unit": "円",
+                    "source": "actual" if has_actual else "plan"
                 },
                 "nisa": {
                     "label": "NISA累積残高",
                     "current": nisa_balance_current,
                     "target": nisa_limit,
                     "rate": nisa_rate,
-                    "unit": "円"
+                    "unit": "円",
+                    "source": "plan"
                 },
                 "goal_2000": {
                     "label": "老後2,000万円目標",
                     "current": target_final,
                     "target": target_2000,
                     "rate": goal_2000_rate,
-                    "unit": "円"
+                    "unit": "円",
+                    "source": "plan"
                 }
             }
         }
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def get_age_for_year(target_year):
+    """
+    指定年に対応する推定年齢を返す（実績入力フォームの年齢自動補完用）
+
+    実績レコードがあれば正確に逆算、なければ今日の日付から推定。
+
+    Args:
+        target_year (int): 対象年
+
+    Returns:
+        dict: {success, age, is_exact}
+    """
+    try:
+        from datetime import date as _date
+        start_age = calculator.basic_info.get("start_age", 25)
+        end_age   = calculator.basic_info.get("end_age", 65)
+        records = scenario_db.get_all_actual_records()
+
+        if records:
+            r0 = records[0]
+            sim_start_year = r0["year"] - (r0["age"] - start_age)
+            is_exact = True
+        else:
+            sim_start_year = _date.today().year
+            is_exact = False
+
+        age = start_age + (int(target_year) - sim_start_year)
+        age = max(start_age, min(end_age, age))
+        return {"success": True, "age": age, "is_exact": is_exact}
     except Exception as e:
         return _api_error(e)
 

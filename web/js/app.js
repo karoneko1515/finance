@@ -86,8 +86,29 @@ function setupEventListeners() {
     const now = new Date();
     const yearEl = document.getElementById('actualYear');
     const monthEl = document.getElementById('actualMonth');
+    const ageEl  = document.getElementById('actualAge');
     if (yearEl) yearEl.value = now.getFullYear();
     if (monthEl) monthEl.value = now.getMonth() + 1;
+
+    // 年変更時に年齢を自動補完
+    const autoFillAge = async () => {
+        if (!yearEl || !ageEl) return;
+        const y = parseInt(yearEl.value);
+        if (isNaN(y) || y < 2020 || y > 2070) return;
+        try {
+            const res = await eel.get_age_for_year(y)();
+            if (res.success) {
+                ageEl.value = res.age;
+                ageEl.style.borderColor = res.is_exact ? '' : 'var(--accent-color)';
+                ageEl.title = res.is_exact ? '' : '実績データから正確な年齢を計算できないため推定値です';
+            }
+        } catch (_) {}
+    };
+    if (yearEl) {
+        yearEl.addEventListener('change', autoFillAge);
+        // 初回も自動補完を試みる
+        autoFillAge();
+    }
 
     // 実績ベース予測ボタン (Feature 1)
     const runPredictBtn = document.getElementById('runActualPredictBtn');
@@ -1168,17 +1189,28 @@ async function loadActualView() {
         ]);
         showLoading(false);
 
+        const hasRecords = recordsResult.success && recordsResult.data.length > 0;
+
         if (recordsResult.success) {
             renderActualRecordsTable(recordsResult.data);
         }
 
-        if (comparisonResult.success) {
+        // 比較グラフ・サマリーカード：実績がある場合のみ表示
+        const chartSections = document.querySelectorAll(
+            '#actualSummaryCards, .chart-container:has(#actualIncomeChart), ' +
+            '.chart-container:has(#actualExpensesChart), .chart-container:has(#actualInvestmentChart)'
+        );
+        if (hasRecords && comparisonResult.success) {
+            chartSections.forEach(el => el.style.display = '');
             renderActualComparisonCharts(comparisonResult.data);
             renderActualSummaryCards(comparisonResult.data);
+        } else {
+            chartSections.forEach(el => el.style.display = 'none');
         }
 
-        // ゴール達成率ゲージを自動ロード
+        // ゴール達成率ゲージ・予測は常にロード（計画ベースでも表示）
         loadGoalGauges();
+
     } catch (err) {
         console.error('実績ビュー読み込みエラー:', err);
         showLoading(false);
@@ -1405,6 +1437,22 @@ async function loadGoalGauges() {
         section.style.display = 'block';
         grid.innerHTML = '';
 
+        // ヘッダーに「計画ベース / 実績ベース」バッジと現在年齢を反映
+        const header = section.querySelector('.goal-gauge-header h3');
+        if (header) {
+            const badge = document.createElement('span');
+            badge.className = result.has_actual
+                ? 'goal-source-badge badge-actual'
+                : 'goal-source-badge badge-plan';
+            badge.textContent = result.has_actual
+                ? `実績ベース (${result.current_age}歳時点)`
+                : `計画ベース (${result.current_age}歳時点・推定)`;
+            // 既存バッジがあれば置き換え
+            const existing = section.querySelector('.goal-source-badge');
+            if (existing) existing.remove();
+            header.after(badge);
+        }
+
         const goals = result.data;
         Object.values(goals).forEach(g => {
             const gauge = document.createElement('div');
@@ -1413,10 +1461,19 @@ async function loadGoalGauges() {
             const rate = Math.min(100, Math.max(0, g.rate));
             const color = rate >= 100 ? '#10b981' : rate >= 70 ? '#f59e0b' : '#ef4444';
 
+            // ソースバッジ: 実績/計画
+            const sourceBadge = (g.source === 'actual')
+                ? '<span class="gauge-src-badge gauge-src-actual">実績</span>'
+                : '<span class="gauge-src-badge gauge-src-plan">計画</span>';
+
             gauge.innerHTML = `
-                <div class="goal-gauge-label">${escapeHTML(g.label)}</div>
+                <div class="goal-gauge-label-row">
+                    <span class="goal-gauge-label">${escapeHTML(g.label)}</span>
+                    ${sourceBadge}
+                </div>
                 <div class="goal-gauge-bar-wrap">
-                    <div class="goal-gauge-bar" style="width:${rate}%; background:${color};"></div>
+                    <div class="goal-gauge-bar" style="width:0%; background:${color};"
+                         data-target="${rate}"></div>
                 </div>
                 <div class="goal-gauge-values">
                     <span class="goal-current">${formatCurrency(g.current)}</span>
@@ -1425,6 +1482,15 @@ async function loadGoalGauges() {
                 </div>
             `;
             grid.appendChild(gauge);
+        });
+
+        // バーをアニメーション表示（requestAnimationFrame で DOM 確定後に実行）
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                grid.querySelectorAll('.goal-gauge-bar').forEach(bar => {
+                    bar.style.width = bar.dataset.target + '%';
+                });
+            });
         });
     } catch (err) {
         console.error('ゴールゲージ読み込みエラー:', err);
