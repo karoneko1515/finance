@@ -11,6 +11,7 @@ let currentScenarioResults = null; // 現在のシナリオ比較結果
 let baselineData = null; // 初期値（ベースライン）データ
 let ageUpdateTimer = null; // 年齢更新のデバウンスタイマー
 let lastRenderedAge = null; // 最後に描画した年齢（重複描画防止）
+let salaryTableData = []; // データ編集タブ用給与テーブルキャッシュ
 
 // ========== 初期化 ==========
 document.addEventListener('DOMContentLoaded', () => {
@@ -87,6 +88,34 @@ function setupEventListeners() {
     const monthEl = document.getElementById('actualMonth');
     if (yearEl) yearEl.value = now.getFullYear();
     if (monthEl) monthEl.value = now.getMonth() + 1;
+
+    // 実績ベース予測ボタン (Feature 1)
+    const runPredictBtn = document.getElementById('runActualPredictBtn');
+    if (runPredictBtn) runPredictBtn.addEventListener('click', runActualBasedPrediction);
+
+    // ゴールゲージ更新ボタン (Feature 4)
+    const refreshGoalBtn = document.getElementById('refreshGoalBtn');
+    if (refreshGoalBtn) refreshGoalBtn.addEventListener('click', loadGoalGauges);
+
+    // データ編集タブ切り替え
+    document.querySelectorAll('.editor-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            const target = e.currentTarget.dataset.editor;
+            document.querySelectorAll('.editor-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.editor-panel').forEach(p => p.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            const panel = document.getElementById(`editor-${target}`);
+            if (panel) panel.classList.add('active');
+        });
+    });
+
+    // 給与範囲一括適用ボタン
+    const applyRangeSalaryBtn = document.getElementById('applyRangeSalaryBtn');
+    if (applyRangeSalaryBtn) applyRangeSalaryBtn.addEventListener('click', applyRangeSalary);
+
+    // カスタムイベント追加ボタン
+    const addCustomEventBtn = document.getElementById('addCustomEventBtn');
+    if (addCustomEventBtn) addCustomEventBtn.addEventListener('click', addCustomEvent);
 }
 
 // ========== ビュー切り替え ==========
@@ -136,6 +165,9 @@ function switchView(viewName) {
     } else if (viewName === 'actual') {
         // 実績管理ビューを読み込み
         loadActualView();
+    } else if (viewName === 'editor') {
+        // データ編集ビューを読み込み
+        loadEditorView();
     }
 }
 
@@ -1316,6 +1348,549 @@ function renderActualSummaryCards(comparisonData) {
     setCard('actualIncomeDiff', totalIncomeDiff);
     setCard('actualExpensesDiff', totalExpDiff, true);  // 支出は少ない方がgood
     setCard('actualInvestmentDiff', totalInvDiff);
+}
+
+// ==================== Feature 1: 実績ベース将来予測 ====================
+
+async function runActualBasedPrediction() {
+    try {
+        showLoading(true);
+        const result = await eel.run_simulation_from_actual()();
+        showLoading(false);
+
+        const infoBar = document.getElementById('actualPredictInfo');
+        const chartEl = document.getElementById('actualPredictChart');
+        if (!result.success) {
+            alert(result.error);
+            return;
+        }
+
+        const diffSign = result.cash_diff >= 0 ? '+' : '';
+        infoBar.style.display = 'flex';
+        infoBar.innerHTML = '';
+
+        const makeChip = (label, val, positive) => {
+            const chip = document.createElement('span');
+            chip.className = `predict-chip ${positive ? 'chip-green' : 'chip-red'}`;
+            chip.textContent = `${label}: ${val}`;
+            return chip;
+        };
+        infoBar.appendChild(makeChip('基準年齢', `${result.from_age}歳`, true));
+        infoBar.appendChild(makeChip('計画現金', formatCurrency(result.plan_cash), true));
+        infoBar.appendChild(makeChip('実績現金', formatCurrency(result.actual_cash), result.cash_diff >= 0));
+        infoBar.appendChild(makeChip('乖離額', `${diffSign}${formatCurrency(result.cash_diff)}`, result.cash_diff >= 0));
+
+        // グラフ描画
+        renderActualPredictionChart(result.data, result.from_age, chartEl.id);
+    } catch (err) {
+        showLoading(false);
+        console.error('実績ベース予測エラー:', err);
+        alert('予測の実行に失敗しました');
+    }
+}
+
+// ==================== Feature 4: ゴール達成率ゲージ ====================
+
+async function loadGoalGauges() {
+    try {
+        const result = await eel.get_goal_achievement()();
+        if (!result.success) return;
+
+        const grid = document.getElementById('goalGaugesGrid');
+        const section = document.getElementById('goalGaugeSection');
+        if (!grid || !section) return;
+        section.style.display = 'block';
+        grid.innerHTML = '';
+
+        const goals = result.data;
+        Object.values(goals).forEach(g => {
+            const gauge = document.createElement('div');
+            gauge.className = 'goal-gauge-item';
+
+            const rate = Math.min(100, Math.max(0, g.rate));
+            const color = rate >= 100 ? '#10b981' : rate >= 70 ? '#f59e0b' : '#ef4444';
+
+            gauge.innerHTML = `
+                <div class="goal-gauge-label">${escapeHTML(g.label)}</div>
+                <div class="goal-gauge-bar-wrap">
+                    <div class="goal-gauge-bar" style="width:${rate}%; background:${color};"></div>
+                </div>
+                <div class="goal-gauge-values">
+                    <span class="goal-current">${formatCurrency(g.current)}</span>
+                    <span class="goal-rate" style="color:${color};">${rate}%</span>
+                    <span class="goal-target">/ ${formatCurrency(g.target)}</span>
+                </div>
+            `;
+            grid.appendChild(gauge);
+        });
+    } catch (err) {
+        console.error('ゴールゲージ読み込みエラー:', err);
+    }
+}
+
+// ==================== データ編集タブ ====================
+
+async function loadEditorView() {
+    await Promise.all([
+        loadSalaryEditor(),
+        loadEventsEditor(),
+        loadExpensesEditor()
+    ]);
+}
+
+// ───────────────────────────────────────
+// 給与エディタ
+// ───────────────────────────────────────
+
+async function loadSalaryEditor() {
+    try {
+        const result = await eel.get_full_salary_table()();
+        if (!result.success) return;
+        salaryTableData = result.data;
+        renderSalaryTable(salaryTableData);
+        renderSalaryCurveChart(salaryTableData);
+    } catch (err) {
+        console.error('給与テーブル読み込みエラー:', err);
+    }
+}
+
+function renderSalaryTable(data) {
+    const tbody = document.getElementById('salaryTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    data.forEach((row, idx) => {
+        const tr = document.createElement('tr');
+        tr.dataset.age = row.age;
+
+        const annualMan = Math.round(row.annual_income / 10000);
+        tr.innerHTML = `
+            <td class="salary-age-cell">${row.age}歳</td>
+            <td class="salary-edit-cell" data-field="base_salary" data-idx="${idx}">${row.base_salary.toLocaleString()}</td>
+            <td class="salary-edit-cell" data-field="bonus_months" data-idx="${idx}">${row.bonus_months}</td>
+            <td class="salary-annual-cell">${annualMan}万円/年</td>
+            <td>
+                <button class="btn btn-sm btn-salary-edit" data-idx="${idx}">編集</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    // インライン編集ボタン
+    tbody.querySelectorAll('.btn-salary-edit').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const idx = parseInt(e.currentTarget.dataset.idx);
+            openSalaryRowEdit(idx);
+        });
+    });
+}
+
+function openSalaryRowEdit(idx) {
+    const row = salaryTableData[idx];
+    const tbody = document.getElementById('salaryTableBody');
+    if (!tbody) return;
+
+    const tr = tbody.children[idx];
+    if (!tr) return;
+
+    // 編集行に変換
+    tr.innerHTML = `
+        <td class="salary-age-cell">${row.age}歳</td>
+        <td><input type="number" class="settings-input salary-inline-input" id="editSalary_${idx}"
+             value="${row.base_salary}" min="0" step="10000" style="width:130px;"></td>
+        <td><input type="number" class="settings-input salary-inline-input" id="editBonus_${idx}"
+             value="${row.bonus_months}" min="0" max="20" step="0.5" style="width:80px;"></td>
+        <td class="salary-annual-cell" id="editAnnualPreview_${idx}">-</td>
+        <td>
+            <button class="btn btn-sm btn-primary" id="confirmSalaryEdit_${idx}">✔</button>
+            <button class="btn btn-sm btn-secondary" id="cancelSalaryEdit_${idx}">✕</button>
+        </td>
+    `;
+
+    const salaryInput = document.getElementById(`editSalary_${idx}`);
+    const bonusInput  = document.getElementById(`editBonus_${idx}`);
+    const preview     = document.getElementById(`editAnnualPreview_${idx}`);
+
+    const updatePreview = () => {
+        const s = parseInt(salaryInput.value) || 0;
+        const b = parseFloat(bonusInput.value) || 0;
+        preview.textContent = `${Math.round(s * (12 + b) / 10000)}万円/年`;
+    };
+    salaryInput.addEventListener('input', updatePreview);
+    bonusInput.addEventListener('input', updatePreview);
+    updatePreview();
+
+    document.getElementById(`confirmSalaryEdit_${idx}`).addEventListener('click', async () => {
+        const newSalary = parseInt(salaryInput.value);
+        const newBonus  = parseFloat(bonusInput.value);
+        if (isNaN(newSalary) || newSalary < 0) { alert('月給を正しく入力してください'); return; }
+        if (isNaN(newBonus)  || newBonus < 0)  { alert('ボーナス倍数を正しく入力してください'); return; }
+
+        showLoading(true);
+        const res = await eel.update_single_age_salary(row.age, newSalary, newBonus)();
+        showLoading(false);
+        if (res.success) {
+            salaryTableData[idx].base_salary  = newSalary;
+            salaryTableData[idx].bonus_months = newBonus;
+            salaryTableData[idx].annual_income = Math.round(newSalary * (12 + newBonus));
+            renderSalaryTable(salaryTableData);
+            renderSalaryCurveChart(salaryTableData);
+            // ダッシュボードのデータも更新
+            await refreshAfterEdit();
+        } else {
+            alert('保存に失敗しました');
+        }
+    });
+
+    document.getElementById(`cancelSalaryEdit_${idx}`).addEventListener('click', () => {
+        renderSalaryTable(salaryTableData);
+    });
+
+    salaryInput.focus();
+}
+
+async function applyRangeSalary() {
+    const start      = parseInt(document.getElementById('salaryRangeStart').value);
+    const end        = parseInt(document.getElementById('salaryRangeEnd').value);
+    const amount     = parseFloat(document.getElementById('salaryRangeAmount').value);
+    const bonus      = parseFloat(document.getElementById('salaryRangeBonus').value);
+    const changeType = document.getElementById('salaryChangeType').value;
+
+    if (isNaN(start) || isNaN(end) || start > end) {
+        alert('開始年齢〜終了年齢を正しく入力してください（開始 ≤ 終了）');
+        return;
+    }
+    if (isNaN(amount)) {
+        alert('月給（または変化率）を入力してください');
+        return;
+    }
+
+    showLoading(true);
+    const res = await eel.update_salary_range(start, end, amount, bonus < 0 ? -1 : bonus, changeType)();
+    showLoading(false);
+
+    if (res.success) {
+        await loadSalaryEditor();
+        await refreshAfterEdit();
+        // 成功トースト
+        showToast(`${start}〜${end}歳の給与を更新しました`);
+    } else {
+        alert('更新に失敗しました: ' + res.error);
+    }
+}
+
+// ───────────────────────────────────────
+// ライフイベントエディタ
+// ───────────────────────────────────────
+
+async function loadEventsEditor() {
+    try {
+        const [planResult, customResult] = await Promise.all([
+            eel.get_plan_data()(),
+            eel.get_custom_events()()
+        ]);
+        if (planResult.success) renderPresetEvents(planResult.data);
+        if (customResult.success) renderCustomEventsList(customResult.data);
+    } catch (err) {
+        console.error('イベントエディタ読み込みエラー:', err);
+    }
+}
+
+function renderPresetEvents(planData) {
+    const grid = document.getElementById('presetEventsGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const events = [
+        {
+            key: 'marriage', label: '結婚',
+            icon: '💒',
+            fields: [
+                { name: 'age',  label: '年齢', type: 'number', path: 'basic_info.marriage_age' },
+                { name: 'cost', label: '費用（円）', type: 'number', path: 'life_events.marriage.cost' }
+            ]
+        },
+        {
+            key: 'home', label: '住宅購入',
+            icon: '🏠',
+            fields: [
+                { name: 'age',          label: '購入年齢', type: 'number', path: 'life_events.home_purchase.age' },
+                { name: 'down_payment', label: '頭金（円）', type: 'number', path: 'life_events.home_purchase.down_payment' },
+                { name: 'loan_amount',  label: 'ローン額（円）', type: 'number', path: 'life_events.home_purchase.loan_amount' },
+                { name: 'interest_rate',label: '金利（%）', type: 'number', path: 'life_events.home_purchase.interest_rate', multiplier: 100 },
+                { name: 'loan_years',   label: '返済年数', type: 'number', path: 'life_events.home_purchase.loan_years' }
+            ]
+        }
+    ];
+
+    events.forEach(ev => {
+        const card = document.createElement('div');
+        card.className = 'preset-event-card';
+
+        const fields = ev.fields.map(f => {
+            const raw = getNestedValue(planData, f.path);
+            const displayVal = f.multiplier ? Math.round(raw * f.multiplier * 10) / 10 : raw;
+            return `<div class="settings-item">
+                <label>${escapeHTML(f.label)}</label>
+                <input type="${f.type}" class="settings-input preset-event-input"
+                    data-path="${f.path}" data-multiplier="${f.multiplier || 1}"
+                    value="${displayVal}">
+            </div>`;
+        }).join('');
+
+        card.innerHTML = `
+            <div class="preset-event-header">
+                <span class="preset-event-icon">${ev.icon}</span>
+                <h4>${escapeHTML(ev.label)}</h4>
+                <button class="btn btn-sm btn-primary save-preset-event-btn" data-key="${ev.key}">保存</button>
+            </div>
+            <div class="preset-event-fields">${fields}</div>
+        `;
+        grid.appendChild(card);
+
+        card.querySelector('.save-preset-event-btn').addEventListener('click', async () => {
+            await savePresetEvent(card, planData);
+        });
+    });
+}
+
+function getNestedValue(obj, path) {
+    return path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : null), obj);
+}
+
+function setNestedValue(obj, path, val) {
+    const keys = path.split('.');
+    let cur = obj;
+    for (let i = 0; i < keys.length - 1; i++) {
+        if (!cur[keys[i]]) cur[keys[i]] = {};
+        cur = cur[keys[i]];
+    }
+    cur[keys[keys.length - 1]] = val;
+}
+
+async function savePresetEvent(card, planData) {
+    const inputs = card.querySelectorAll('.preset-event-input');
+    inputs.forEach(inp => {
+        const path = inp.dataset.path;
+        const mult = parseFloat(inp.dataset.multiplier) || 1;
+        const rawVal = parseFloat(inp.value);
+        setNestedValue(planData, path, mult === 1 ? rawVal : rawVal / mult);
+    });
+
+    // marriage_age は basic_info にも反映
+    const marriageAgeInput = card.querySelector('[data-path="basic_info.marriage_age"]');
+    if (marriageAgeInput) {
+        planData.basic_info.marriage_age = parseInt(marriageAgeInput.value);
+        planData.life_events.marriage.age = parseInt(marriageAgeInput.value);
+    }
+
+    showLoading(true);
+    const res = await eel.update_plan_data(planData)();
+    showLoading(false);
+    if (res.success) {
+        await refreshAfterEdit();
+        showToast('イベント設定を保存しました');
+    } else {
+        alert('保存に失敗しました');
+    }
+}
+
+function renderCustomEventsList(events) {
+    const container = document.getElementById('customEventsList');
+    if (!container) return;
+
+    if (!events || events.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-secondary);">カスタムイベントはありません</p>';
+        return;
+    }
+
+    container.innerHTML = '';
+    const table = document.createElement('table');
+    table.className = 'actual-records-table';
+    table.innerHTML = `<thead><tr>
+        <th>イベント名</th><th>年齢</th><th>費用</th><th>メモ</th><th>操作</th>
+    </tr></thead>`;
+    const tbody = document.createElement('tbody');
+    events.forEach(ev => {
+        const tr = document.createElement('tr');
+        const nameTd    = document.createElement('td'); nameTd.textContent = ev.name;
+        const ageTd     = document.createElement('td'); ageTd.textContent = `${ev.age}歳`;
+        const costTd    = document.createElement('td'); costTd.textContent = formatCurrency(ev.cost);
+        const descTd    = document.createElement('td'); descTd.textContent = ev.description || '';
+        const actionTd  = document.createElement('td');
+        const delBtn    = document.createElement('button');
+        delBtn.className = 'btn btn-secondary btn-sm';
+        delBtn.textContent = '削除';
+        delBtn.addEventListener('click', async () => {
+            if (!confirm(`「${ev.name}」を削除しますか？`)) return;
+            showLoading(true);
+            const res = await eel.delete_custom_event(ev.id)();
+            showLoading(false);
+            if (res.success) {
+                await loadEventsEditor();
+                await refreshAfterEdit();
+                showToast('カスタムイベントを削除しました');
+            }
+        });
+        actionTd.appendChild(delBtn);
+        tr.append(nameTd, ageTd, costTd, descTd, actionTd);
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    container.appendChild(table);
+}
+
+async function addCustomEvent() {
+    const name = document.getElementById('customEventName').value.trim();
+    const age  = parseInt(document.getElementById('customEventAge').value);
+    const cost = parseInt(document.getElementById('customEventCost').value) || 0;
+    const desc = document.getElementById('customEventDesc').value.trim();
+
+    if (!name) { alert('イベント名を入力してください'); return; }
+    if (isNaN(age) || age < 18 || age > 80) { alert('年齢を18〜80歳で入力してください'); return; }
+
+    showLoading(true);
+    const res = await eel.save_custom_event({ name, age, cost, description: desc })();
+    showLoading(false);
+
+    if (res.success) {
+        document.getElementById('customEventName').value = '';
+        document.getElementById('customEventAge').value  = '';
+        document.getElementById('customEventCost').value = '';
+        document.getElementById('customEventDesc').value = '';
+        await loadEventsEditor();
+        await refreshAfterEdit();
+        showToast('カスタムイベントを追加しました');
+    } else {
+        alert('追加に失敗しました: ' + res.error);
+    }
+}
+
+// ───────────────────────────────────────
+// 生活費エディタ
+// ───────────────────────────────────────
+
+const EXPENSE_LABEL_MAP = {
+    food: '食費', communication: '通信費', transportation: '交通費',
+    daily_goods: '日用品', insurance: '保険', entertainment: '娯楽',
+    daily_goods_children: '日用品(子育て)', childcare_lessons: '保育・習い事',
+    pet: 'ペット費', clothing_medical: '衣服・医療',
+    education_cram_school: '塾・教育費', spouse_allowance: '配偶者小遣い',
+    basic_living: '基本生活費', leisure_travel: '余暇・旅行',
+    child_preparation_fund: '子供準備資金'
+};
+
+async function loadExpensesEditor() {
+    try {
+        const result = await eel.get_plan_data()();
+        if (!result.success) return;
+        const phases = result.data.phase_definitions;
+        renderPhaseExpensesAccordion(phases);
+    } catch (err) {
+        console.error('生活費エディタ読み込みエラー:', err);
+    }
+}
+
+function renderPhaseExpensesAccordion(phases) {
+    const container = document.getElementById('phaseExpensesAccordion');
+    if (!container) return;
+    container.innerHTML = '';
+
+    Object.entries(phases).forEach(([phaseName, phase]) => {
+        const expenses = phase.monthly_expenses || {};
+        const total = Object.values(expenses).reduce((s, v) => s + v, 0);
+
+        const card = document.createElement('div');
+        card.className = 'phase-expense-card';
+
+        const fieldRows = Object.entries(expenses).map(([key, val]) => {
+            const label = EXPENSE_LABEL_MAP[key] || key;
+            return `<div class="settings-item">
+                <label>${escapeHTML(label)}</label>
+                <input type="number" class="settings-input phase-expense-input"
+                    data-key="${key}" value="${val}" min="0" step="1000">
+            </div>`;
+        }).join('');
+
+        card.innerHTML = `
+            <div class="phase-card-header" data-phase="${phaseName}">
+                <div class="phase-card-title">
+                    <span class="phase-card-name">${escapeHTML(phase.name)}</span>
+                    <span class="phase-card-range">${escapeHTML(phase.ages)}歳</span>
+                    <span class="phase-card-total">月計: ${Math.round(total/10000)}万円</span>
+                </div>
+                <div class="phase-card-actions">
+                    <button class="btn btn-sm btn-primary save-phase-btn" data-phase="${phaseName}">保存</button>
+                    <span class="phase-toggle-icon">▼</span>
+                </div>
+            </div>
+            <div class="phase-card-body">
+                <div class="phase-expense-fields">${fieldRows}</div>
+            </div>
+        `;
+        container.appendChild(card);
+
+        // アコーディオン開閉
+        card.querySelector('.phase-card-header').addEventListener('click', (e) => {
+            if (e.target.classList.contains('save-phase-btn')) return;
+            card.classList.toggle('open');
+        });
+
+        // 合計プレビュー更新
+        card.querySelectorAll('.phase-expense-input').forEach(inp => {
+            inp.addEventListener('input', () => {
+                const newTotal = Array.from(card.querySelectorAll('.phase-expense-input'))
+                    .reduce((s, el) => s + (parseInt(el.value) || 0), 0);
+                card.querySelector('.phase-card-total').textContent =
+                    `月計: ${Math.round(newTotal / 10000)}万円`;
+            });
+        });
+
+        // 保存ボタン
+        card.querySelector('.save-phase-btn').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const inputs = card.querySelectorAll('.phase-expense-input');
+            const newExpenses = {};
+            inputs.forEach(inp => { newExpenses[inp.dataset.key] = parseInt(inp.value) || 0; });
+
+            showLoading(true);
+            const res = await eel.update_phase_expenses(phaseName, newExpenses)();
+            showLoading(false);
+            if (res.success) {
+                await refreshAfterEdit();
+                showToast(`${phase.name}の生活費を更新しました`);
+            } else {
+                alert('保存に失敗しました: ' + res.error);
+            }
+        });
+    });
+}
+
+// ───────────────────────────────────────
+// 共通ユーティリティ
+// ───────────────────────────────────────
+
+/** 編集後にシミュレーションデータを再取得してダッシュボードを更新 */
+async function refreshAfterEdit() {
+    const result = await eel.run_simulation()();
+    if (result.success) {
+        simulationData = result.data;
+        renderDashboard(simulationData);
+    }
+}
+
+/** トースト通知（軽量フィードバック） */
+function showToast(message) {
+    let toast = document.getElementById('appToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'appToast';
+        toast.className = 'app-toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
 console.log('app.js ロード完了');

@@ -749,6 +749,18 @@ class LifePlanCalculator:
                         ]
                     })
 
+            # カスタムライフイベント支出（plan の life_events.custom_events）
+            for ev in self.life_events.get("custom_events", []):
+                if ev.get("age") == age:
+                    ev_cost = int(ev.get("cost", 0))
+                    if ev_cost > 0:
+                        assets["cash_balance"] -= ev_cost
+                        irregular_expenses.append({
+                            "type": ev.get("name", "カスタムイベント"),
+                            "amount": ev_cost,
+                            "payment_sources": [{"source": "現金", "amount": ev_cost}]
+                        })
+
             # 総資産
             assets["total"] = (assets["nisa_tsumitate_balance"] +
                              assets["nisa_growth_balance"] +

@@ -901,4 +901,116 @@ function renderActualComparisonCharts(comparisonData) {
     ], baseLayout('投資額: 計画 vs 実績'), config);
 }
 
+// ========== 実績ベース将来予測チャート ==========
+function renderActualPredictionChart(data, fromAge, elementId) {
+    if (!data || data.length === 0) return;
+
+    const ages = data.map(d => d.age);
+    const planAssets = data.map(d => d.assets_end);
+    const adjAssets  = data.map(d => d.assets_end_adjusted);
+
+    const tracePlan = {
+        x: ages, y: planAssets,
+        type: 'scatter', mode: 'lines',
+        name: '計画資産',
+        line: { color: '#94a3b8', width: 2, dash: 'dot' },
+        hovertemplate: '%{x}歳 (計画): %{y:,.0f}円<extra></extra>'
+    };
+
+    const traceAdj = {
+        x: ages, y: adjAssets,
+        type: 'scatter', mode: 'lines+markers',
+        name: '実績調整後資産',
+        line: { color: '#3b82f6', width: 3 },
+        marker: { size: 5, color: '#1d4ed8' },
+        hovertemplate: '%{x}歳 (調整後): %{y:,.0f}円<extra></extra>'
+    };
+
+    // 実績基準点
+    const basePoint = data.find(d => d.age === fromAge);
+    const traceBase = basePoint ? {
+        x: [fromAge], y: [basePoint.assets_end_adjusted],
+        type: 'scatter', mode: 'markers',
+        name: '実績基準点',
+        marker: { size: 12, color: '#10b981', symbol: 'star' },
+        hovertemplate: `${fromAge}歳 (実績基準): %{y:,.0f}円<extra></extra>`
+    } : null;
+
+    const traces = traceBase ? [tracePlan, traceAdj, traceBase] : [tracePlan, traceAdj];
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: {
+            title: '年齢',
+            dtick: 5,
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        yaxis: {
+            title: '資産額 (円)',
+            tickformat: ',.0f',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        legend: { orientation: 'h', y: -0.15 },
+        hovermode: 'x unified',
+        margin: { t: 30, r: 30, b: 60, l: 80 }
+    };
+
+    Plotly.newPlot(elementId, traces, layout, { responsive: true, displaylogo: false });
+}
+
+// ========== 給与曲線チャート（エディタ用） ==========
+function renderSalaryCurveChart(salaryData) {
+    if (!salaryData || salaryData.length === 0) return;
+    const el = document.getElementById('salaryCurveChart');
+    if (!el) return;
+
+    const ages    = salaryData.map(d => d.age);
+    const annual  = salaryData.map(d => d.annual_income);
+    const base    = salaryData.map(d => d.base_salary);
+
+    const traceAnnual = {
+        x: ages, y: annual,
+        type: 'scatter', mode: 'lines+markers',
+        name: '年収（基本給＋賞与）',
+        line: { color: '#3b82f6', width: 3 },
+        marker: {
+            size: salaryData.map(d => d.is_anchor ? 10 : 5),
+            color: salaryData.map(d => d.is_anchor ? '#f59e0b' : '#3b82f6'),
+            symbol: salaryData.map(d => d.is_anchor ? 'diamond' : 'circle')
+        },
+        hovertemplate: '%{x}歳: %{y:,.0f}円<extra></extra>'
+    };
+
+    const traceBase = {
+        x: ages, y: base,
+        type: 'scatter', mode: 'lines',
+        name: '基本給',
+        line: { color: '#94a3b8', width: 1.5, dash: 'dot' },
+        hovertemplate: '%{x}歳 基本給: %{y:,.0f}円<extra></extra>'
+    };
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: {
+            title: '年齢',
+            dtick: 5,
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        yaxis: {
+            title: '金額 (円)',
+            tickformat: ',.0f',
+            gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
+        },
+        legend: { orientation: 'h', y: -0.2 },
+        hovermode: 'x unified',
+        margin: { t: 20, r: 20, b: 60, l: 80 }
+    };
+
+    Plotly.newPlot('salaryCurveChart', [traceAnnual, traceBase], layout, {
+        responsive: true, displaylogo: false
+    });
+}
+
 console.log('charts.js ロード完了');

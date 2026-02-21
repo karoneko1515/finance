@@ -505,6 +505,404 @@ def get_plan_vs_actual():
         return _api_error(e)
 
 
+# ==================== データ編集 / 給与テーブル ====================
+
+@eel.expose
+def get_full_salary_table():
+    """
+    全年齢 (start_age〜end_age) の給与データを返す（データ編集UI用）
+    アンカーポイント間は直近アンカーの値を継承して展開する。
+
+    Returns:
+        dict: 各年齢の給与データリスト
+    """
+    try:
+        start_age = calculator.basic_info.get("start_age", 25)
+        end_age   = calculator.basic_info.get("end_age",   65)
+        progression = data_loader.get_income_progression()
+        anchor_ages = sorted([int(a) for a in progression.keys()])
+
+        result = []
+        for age in range(start_age, end_age + 1):
+            applicable = anchor_ages[0]
+            for a in anchor_ages:
+                if age >= a:
+                    applicable = a
+                else:
+                    break
+            sd = progression[str(applicable)]
+            annual = sd["base_salary"] * (12 + sd["bonus_months"])
+            result.append({
+                "age": age,
+                "base_salary": sd["base_salary"],
+                "bonus_months": sd["bonus_months"],
+                "annual_income": round(annual),
+                "is_anchor": str(age) in progression
+            })
+        return {"success": True, "data": result}
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def update_salary_range(start_age, end_age, base_salary, bonus_months, change_type="absolute"):
+    """
+    指定年齢範囲の給与を一括更新して再シミュレーション
+
+    Args:
+        start_age (int):    対象開始年齢
+        end_age (int):      対象終了年齢
+        base_salary (int):  月給（円）または変化率（change_type="percent"のとき %）
+        bonus_months (float): ボーナス月数（-1 で変更なし）
+        change_type (str): "absolute" or "percent"
+
+    Returns:
+        dict: 保存・再計算結果
+    """
+    try:
+        plan_data = data_loader.get_all_data()
+        prog = plan_data["income_progression"]
+
+        # 既存アンカーを全年齢に展開してから範囲を上書き
+        anchor_ages = sorted([int(a) for a in prog.keys()])
+        s_age = int(data_loader.get_basic_info().get("start_age", 25))
+        e_age = int(data_loader.get_basic_info().get("end_age",   65))
+
+        # まず全年齢を展開
+        full = {}
+        for age in range(s_age, e_age + 1):
+            app = anchor_ages[0]
+            for a in anchor_ages:
+                if age >= a:
+                    app = a
+                else:
+                    break
+            full[str(age)] = dict(prog[str(app)])
+
+        # 範囲内を上書き
+        for age in range(int(start_age), int(end_age) + 1):
+            cur = full[str(age)]
+            if change_type == "percent":
+                cur["base_salary"] = round(cur["base_salary"] * (1 + float(base_salary) / 100))
+            else:
+                cur["base_salary"] = int(base_salary)
+            if float(bonus_months) >= 0:
+                cur["bonus_months"] = float(bonus_months)
+            full[str(age)] = cur
+
+        plan_data["income_progression"] = full
+        data_loader.save_user_plan(plan_data)
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+        calculator.simulate_30_years()
+        return {"success": True, "message": f"{start_age}〜{end_age}歳の給与を更新しました"}
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def update_single_age_salary(age, base_salary, bonus_months):
+    """
+    1歳分の給与を更新して再シミュレーション
+
+    Args:
+        age (int): 対象年齢
+        base_salary (int): 月給（円）
+        bonus_months (float): ボーナス月数
+
+    Returns:
+        dict: 保存・再計算結果
+    """
+    try:
+        plan_data = data_loader.get_all_data()
+        prog = plan_data["income_progression"]
+
+        # まず全年齢展開
+        anchor_ages = sorted([int(a) for a in prog.keys()])
+        s_age = int(data_loader.get_basic_info().get("start_age", 25))
+        e_age = int(data_loader.get_basic_info().get("end_age",   65))
+        full = {}
+        for a in range(s_age, e_age + 1):
+            app = anchor_ages[0]
+            for x in anchor_ages:
+                if a >= x:
+                    app = x
+                else:
+                    break
+            full[str(a)] = dict(prog[str(app)])
+
+        full[str(int(age))] = {
+            "base_salary": int(base_salary),
+            "bonus_months": float(bonus_months)
+        }
+        plan_data["income_progression"] = full
+        data_loader.save_user_plan(plan_data)
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+        calculator.simulate_30_years()
+        return {"success": True, "message": f"{age}歳の給与を更新しました"}
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def get_custom_events():
+    """カスタムライフイベント一覧を取得"""
+    try:
+        plan_data = data_loader.get_all_data()
+        events = plan_data.get("life_events", {}).get("custom_events", [])
+        return {"success": True, "data": events}
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def save_custom_event(event_data):
+    """
+    カスタムライフイベントを保存（id があれば更新、なければ追加）
+
+    Args:
+        event_data (dict): {id?, name, age, cost, description?}
+
+    Returns:
+        dict: 保存結果
+    """
+    try:
+        plan_data = data_loader.get_all_data()
+        if "custom_events" not in plan_data["life_events"]:
+            plan_data["life_events"]["custom_events"] = []
+        events = plan_data["life_events"]["custom_events"]
+
+        name = str(event_data.get("name", "")).strip()
+        if not name:
+            return {"success": False, "error": "イベント名を入力してください"}
+        age  = int(event_data.get("age", 0))
+        cost = int(event_data.get("cost", 0))
+        desc = str(event_data.get("description", ""))
+        ev_id = event_data.get("id")
+
+        if ev_id:
+            # 更新
+            for ev in events:
+                if ev.get("id") == ev_id:
+                    ev.update({"name": name, "age": age, "cost": cost, "description": desc})
+                    break
+        else:
+            # 新規追加（id はタイムスタンプで生成）
+            import time
+            events.append({"id": f"ev_{int(time.time()*1000)}", "name": name, "age": age, "cost": cost, "description": desc})
+
+        plan_data["life_events"]["custom_events"] = events
+        data_loader.save_user_plan(plan_data)
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+        calculator.simulate_30_years()
+        return {"success": True, "message": "カスタムイベントを保存しました"}
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def delete_custom_event(ev_id):
+    """
+    カスタムライフイベントを削除
+
+    Args:
+        ev_id (str): イベントID
+
+    Returns:
+        dict: 削除結果
+    """
+    try:
+        plan_data = data_loader.get_all_data()
+        events = plan_data.get("life_events", {}).get("custom_events", [])
+        plan_data["life_events"]["custom_events"] = [e for e in events if e.get("id") != ev_id]
+        data_loader.save_user_plan(plan_data)
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+        calculator.simulate_30_years()
+        return {"success": True, "message": "カスタムイベントを削除しました"}
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def update_phase_expenses(phase_name, monthly_expenses):
+    """
+    フェーズ別の月次生活費を一括更新
+
+    Args:
+        phase_name (str): フェーズ名 (phase1〜phase7)
+        monthly_expenses (dict): {category: amount} の辞書
+
+    Returns:
+        dict: 保存・再計算結果
+    """
+    try:
+        plan_data = data_loader.get_all_data()
+        if phase_name not in plan_data.get("phase_definitions", {}):
+            return {"success": False, "error": f"フェーズ '{phase_name}' が見つかりません"}
+        plan_data["phase_definitions"][phase_name]["monthly_expenses"] = {
+            k: int(v) for k, v in monthly_expenses.items() if int(v) >= 0
+        }
+        data_loader.save_user_plan(plan_data)
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+        calculator.simulate_30_years()
+        return {"success": True, "message": f"{phase_name}の生活費を更新しました"}
+    except Exception as e:
+        return _api_error(e)
+
+
+# ==================== Feature 1: 実績ベース将来予測 ====================
+
+@eel.expose
+def run_simulation_from_actual():
+    """
+    最新の実績現金残高を起点に将来予測を調整して返す。
+    計画シミュレーション結果に「実績との乖離額」を加算した予測を返す。
+
+    Returns:
+        dict: 調整済み年次データ + 乖離情報
+    """
+    try:
+        if not calculator.yearly_data:
+            return {"success": False, "error": "先にシミュレーションを実行してください"}
+
+        records = scenario_db.get_all_actual_records()
+        if not records:
+            return {"success": False, "error": "実績データがありません。先に実績を入力してください"}
+
+        latest = records[-1]
+        actual_age = latest["age"]
+        actual_cash = latest["cash_balance_actual"]
+
+        # 計画上の同年齢の現金残高を取得
+        plan_entry = next((d for d in calculator.yearly_data if d["age"] == actual_age), None)
+        if not plan_entry:
+            return {"success": False, "error": f"{actual_age}歳のシミュレーションデータがありません"}
+
+        plan_cash = plan_entry.get("cash", 0)
+        cash_diff = actual_cash - plan_cash
+
+        # 全将来年度に差分を加算（簡易オフセット方式）
+        adjusted = []
+        start_age = calculator.basic_info.get("start_age", 25)
+        for d in calculator.yearly_data:
+            entry = dict(d)
+            if d["age"] >= actual_age:
+                entry["assets_end_adjusted"] = d["assets_end"] + cash_diff
+                entry["cash_adjusted"] = d.get("cash", 0) + cash_diff
+            else:
+                entry["assets_end_adjusted"] = d["assets_end"]
+                entry["cash_adjusted"] = d.get("cash", 0)
+            adjusted.append(entry)
+
+        return {
+            "success": True,
+            "data": adjusted,
+            "from_age": actual_age,
+            "cash_diff": cash_diff,
+            "actual_cash": actual_cash,
+            "plan_cash": plan_cash
+        }
+    except Exception as e:
+        return _api_error(e)
+
+
+# ==================== Feature 4: 目標達成率ゲージ ====================
+
+@eel.expose
+def get_goal_achievement():
+    """
+    各種目標の達成率を計算して返す
+
+    Returns:
+        dict: 目標達成状況サマリー
+    """
+    try:
+        if not calculator.yearly_data:
+            return {"success": False, "error": "シミュレーションを先に実行してください"}
+
+        records = scenario_db.get_all_actual_records()
+        latest = records[-1] if records else None
+        actual_cash = latest["cash_balance_actual"] if latest else 0
+        actual_age  = latest["age"] if latest else calculator.basic_info.get("start_age", 25)
+
+        # 65歳時の計画最終資産
+        final_entry  = calculator.yearly_data[-1]
+        target_final = final_entry.get("assets_end", 0)
+
+        # 現在の計画資産
+        current_plan = next(
+            (d.get("assets_end", 0) for d in calculator.yearly_data if d["age"] == actual_age),
+            calculator.yearly_data[0].get("assets_end", 0)
+        )
+
+        # 緊急予備費目標（月支出×6ヶ月分）
+        current_year_data = next(
+            (d for d in calculator.yearly_data if d["age"] == actual_age), None
+        )
+        monthly_expenses_est = (current_year_data.get("expenses_total", 0) / 12) if current_year_data else 0
+        emergency_target = monthly_expenses_est * 6
+
+        # NISA積立進捗（計画累計）
+        nisa_limit = (
+            calculator.investment_settings["nisa"].get("tsumitate_limit", 12000000)
+            + calculator.investment_settings["nisa"].get("growth_limit", 6000000)
+        )
+        nisa_balance_current = next(
+            (d.get("nisa_tsumitate", 0) + d.get("nisa_growth", 0)
+             for d in calculator.yearly_data if d["age"] == actual_age),
+            0
+        )
+
+        # 退職準備進捗（現計画資産 / 最終目標）
+        retirement_rate = min(100, round(current_plan / target_final * 100, 1)) if target_final else 0
+        emergency_rate  = min(100, round(actual_cash / emergency_target * 100, 1)) if emergency_target else 0
+        nisa_rate       = min(100, round(nisa_balance_current / nisa_limit * 100, 1)) if nisa_limit else 0
+
+        # 老後2000万問題: 65歳時の資産が2000万以上かどうか
+        target_2000 = 20_000_000
+        goal_2000_rate = min(100, round(target_final / target_2000 * 100, 1))
+
+        return {
+            "success": True,
+            "data": {
+                "retirement": {
+                    "label": "退職資産目標",
+                    "current": current_plan,
+                    "target": target_final,
+                    "rate": retirement_rate,
+                    "unit": "円"
+                },
+                "emergency": {
+                    "label": "緊急予備費 (6ヶ月分)",
+                    "current": actual_cash,
+                    "target": round(emergency_target),
+                    "rate": emergency_rate,
+                    "unit": "円"
+                },
+                "nisa": {
+                    "label": "NISA累積残高",
+                    "current": nisa_balance_current,
+                    "target": nisa_limit,
+                    "rate": nisa_rate,
+                    "unit": "円"
+                },
+                "goal_2000": {
+                    "label": "老後2,000万円目標",
+                    "current": target_final,
+                    "target": target_2000,
+                    "rate": goal_2000_rate,
+                    "unit": "円"
+                }
+            }
+        }
+    except Exception as e:
+        return _api_error(e)
+
+
 def main():
     """メイン関数"""
     import gc

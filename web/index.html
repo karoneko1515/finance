@@ -43,6 +43,7 @@
             <button class="nav-tab" data-view="dividend">配当金</button>
             <button class="nav-tab" data-view="scenario">シナリオ比較</button>
             <button class="nav-tab nav-tab-actual" data-view="actual">📊 実績管理</button>
+            <button class="nav-tab nav-tab-editor" data-view="editor">✏️ データ編集</button>
         </nav>
 
         <!-- メインコンテンツ -->
@@ -386,6 +387,26 @@
                     </div>
                 </div>
 
+                <!-- 目標達成率ゲージ (Feature 4) -->
+                <div class="card actual-goal-card" id="goalGaugeSection" style="display:none;">
+                    <div class="goal-gauge-header">
+                        <h3>🎯 目標達成率</h3>
+                        <button id="refreshGoalBtn" class="btn btn-secondary btn-sm">更新</button>
+                    </div>
+                    <div class="goal-gauges-grid" id="goalGaugesGrid"></div>
+                </div>
+
+                <!-- 実績ベース将来予測 (Feature 1) -->
+                <div class="card actual-predict-card">
+                    <div class="predict-header">
+                        <h3>🔮 実績ベース将来予測</h3>
+                        <button id="runActualPredictBtn" class="btn btn-primary">実績ベースで再予測</button>
+                    </div>
+                    <p class="actual-description" style="margin: 0.5rem 0 0;">最新の実績現金残高を起点に、将来の資産推移を調整します。</p>
+                    <div id="actualPredictInfo" style="display:none;" class="predict-info-bar"></div>
+                    <div id="actualPredictChart" style="margin-top:1rem;"></div>
+                </div>
+
                 <!-- 計画vs実績サマリーカード -->
                 <div id="actualSummaryCards" class="actual-summary-cards" style="display:none;">
                     <div class="card actual-stat-card">
@@ -427,6 +448,128 @@
                         <p style="color: var(--text-secondary);">実績データがありません。上のフォームから入力してください。</p>
                     </div>
                 </div>
+            </section>
+
+            <!-- ===================== データ編集ビュー ===================== -->
+            <section id="editor-view" class="view">
+                <div class="editor-header">
+                    <h2>✏️ データ編集</h2>
+                    <p class="actual-description">給与・ライフイベント・生活費などのパラメータを直接編集できます。変更は即座に再計算に反映されます。</p>
+                </div>
+
+                <!-- ── タブナビ ── -->
+                <div class="editor-tabs">
+                    <button class="editor-tab active" data-editor="salary">💴 給与・収入</button>
+                    <button class="editor-tab" data-editor="events">📅 ライフイベント</button>
+                    <button class="editor-tab" data-editor="expenses">🛒 生活費</button>
+                </div>
+
+                <!-- ══ 給与エディタ ══ -->
+                <div id="editor-salary" class="editor-panel active">
+                    <!-- 一括設定パネル -->
+                    <div class="card editor-range-card">
+                        <h3>範囲一括設定</h3>
+                        <div class="editor-range-row">
+                            <div class="settings-item">
+                                <label>対象: 開始年齢</label>
+                                <input type="number" id="salaryRangeStart" class="settings-input" min="25" max="65" value="25">
+                            </div>
+                            <span class="range-sep">〜</span>
+                            <div class="settings-item">
+                                <label>終了年齢</label>
+                                <input type="number" id="salaryRangeEnd" class="settings-input" min="25" max="65" value="30">
+                            </div>
+                            <div class="settings-item">
+                                <label>月給（円）</label>
+                                <input type="number" id="salaryRangeAmount" class="settings-input" min="0" step="10000" placeholder="例: 350000">
+                            </div>
+                            <div class="settings-item">
+                                <label>ボーナス倍数</label>
+                                <input type="number" id="salaryRangeBonus" class="settings-input" min="0" max="20" step="0.5" value="-1" placeholder="-1で変更なし">
+                            </div>
+                            <div class="settings-item">
+                                <label>変更方式</label>
+                                <select id="salaryChangeType" class="settings-input">
+                                    <option value="absolute">月給を固定値に</option>
+                                    <option value="percent">月給を%変更</option>
+                                </select>
+                            </div>
+                            <div class="settings-item" style="align-self:flex-end;">
+                                <button id="applyRangeSalaryBtn" class="btn btn-primary">一括適用</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 給与曲線グラフ -->
+                    <div class="chart-container" style="margin-bottom:1rem;">
+                        <h3 style="margin-bottom:0.5rem;">給与カーブプレビュー</h3>
+                        <div id="salaryCurveChart"></div>
+                    </div>
+
+                    <!-- 年齢別テーブル -->
+                    <div class="card editor-table-card">
+                        <div class="editor-table-header">
+                            <h3>年齢別給与テーブル</h3>
+                            <span class="editor-hint">行をクリックして個別編集 / 編集後 Enter または ✔ で確定</span>
+                        </div>
+                        <div class="editor-table-wrapper">
+                            <table id="salaryTable" class="editor-table">
+                                <thead>
+                                    <tr><th>年齢</th><th>月給（円）</th><th>ボーナス倍数</th><th>年収試算</th><th>操作</th></tr>
+                                </thead>
+                                <tbody id="salaryTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ══ ライフイベントエディタ ══ -->
+                <div id="editor-events" class="editor-panel">
+                    <!-- 既定イベント編集 -->
+                    <div class="card editor-events-card">
+                        <h3>既定イベント</h3>
+                        <div class="preset-events-grid" id="presetEventsGrid">
+                            <!-- JSで描画 -->
+                        </div>
+                    </div>
+
+                    <!-- カスタムイベント追加 -->
+                    <div class="card editor-events-card">
+                        <h3>カスタムイベント追加</h3>
+                        <div class="custom-event-form">
+                            <div class="settings-item">
+                                <label>イベント名</label>
+                                <input type="text" id="customEventName" class="settings-input" maxlength="50" placeholder="例: 車購入、海外旅行">
+                            </div>
+                            <div class="settings-item">
+                                <label>発生年齢</label>
+                                <input type="number" id="customEventAge" class="settings-input" min="25" max="65" placeholder="例: 35">
+                            </div>
+                            <div class="settings-item">
+                                <label>費用（円）</label>
+                                <input type="number" id="customEventCost" class="settings-input" min="0" step="10000" placeholder="例: 3000000">
+                            </div>
+                            <div class="settings-item">
+                                <label>メモ</label>
+                                <input type="text" id="customEventDesc" class="settings-input" maxlength="100" placeholder="任意">
+                            </div>
+                            <div class="settings-item" style="align-self:flex-end;">
+                                <button id="addCustomEventBtn" class="btn btn-primary">追加</button>
+                            </div>
+                        </div>
+
+                        <div id="customEventsList" style="margin-top:1.5rem;"></div>
+                    </div>
+                </div>
+
+                <!-- ══ 生活費エディタ ══ -->
+                <div id="editor-expenses" class="editor-panel">
+                    <div class="editor-phase-hint">
+                        <p>各フェーズの月次生活費を編集できます。項目を変更後、フェーズ右上の「保存」ボタンで反映されます。</p>
+                    </div>
+                    <div id="phaseExpensesAccordion"></div>
+                </div>
+
             </section>
         </main>
     </div>
