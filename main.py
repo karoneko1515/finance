@@ -1010,6 +1010,84 @@ def run_monte_carlo_simulation(n_simulations=300, return_std=0.08, base_type="pl
         return _api_error(e)
 
 
+@eel.expose
+def get_retirement_income_analysis(post_return_rate=0.02):
+    """
+    65歳以降の月・年間使用可能額を算出
+
+    取り崩し方式: 年金現価方式 (PMT = PV × r / (1-(1+r)^-n))
+    ゼロリターン時は単純均等割り
+
+    Args:
+        post_return_rate (float): 老後の投資リターン率（年率）
+
+    Returns:
+        dict: target_agesごとの月・年間使用可能額
+    """
+    try:
+        if not calculator.yearly_data:
+            calculator.simulate_30_years()
+
+        final_assets   = calculator.yearly_data[-1]["assets_end"]
+        retirement_age = calculator.basic_info.get("end_age", 65)
+
+        # 年金月額
+        pension_cfg    = calculator.loader.get_pension()
+        pension_start  = pension_cfg.get("start_age", 65)
+        pension_monthly = pension_cfg.get("monthly_amount", 0) if pension_start <= retirement_age else 0
+
+        # 配偶者年金（65歳以降の配偶者収入）
+        spouse_cfg    = calculator.loader.get_spouse_income()
+        spouse_monthly = spouse_cfg.get("65-99", 0) / 12 if isinstance(spouse_cfg.get("65-99"), (int, float)) else 0
+
+        # 非投資収入合計（月額）
+        extra_monthly = pension_monthly + spouse_monthly
+
+        target_ages = [80, 85, 90, 95, 100]
+        scenarios   = []
+
+        for target_age in target_ages:
+            n_years  = target_age - retirement_age
+            if n_years <= 0:
+                continue
+            n_months = n_years * 12
+
+            if post_return_rate <= 0 or final_assets <= 0:
+                monthly_withdrawal = max(final_assets, 0) / n_months
+            else:
+                r = post_return_rate / 12            # 月次利率
+                monthly_withdrawal = (final_assets * r) / (1 - (1 + r) ** (-n_months))
+
+            total_monthly = monthly_withdrawal + extra_monthly
+
+            scenarios.append({
+                "target_age":           target_age,
+                "n_years":              n_years,
+                "monthly_withdrawal":   round(monthly_withdrawal),
+                "monthly_pension":      round(pension_monthly),
+                "monthly_spouse":       round(spouse_monthly),
+                "extra_monthly":        round(extra_monthly),
+                "total_monthly":        round(total_monthly),
+                "total_yearly":         round(total_monthly * 12),
+                "withdrawal_yearly":    round(monthly_withdrawal * 12),
+            })
+
+        return {
+            "success": True,
+            "data": {
+                "final_assets":     final_assets,
+                "retirement_age":   retirement_age,
+                "pension_monthly":  pension_monthly,
+                "spouse_monthly":   spouse_monthly,
+                "extra_monthly":    extra_monthly,
+                "post_return_rate": post_return_rate,
+                "scenarios":        scenarios,
+            },
+        }
+    except Exception as e:
+        return _api_error(e)
+
+
 def main():
     """メイン関数"""
     import gc

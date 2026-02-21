@@ -139,6 +139,10 @@ function setupEventListeners() {
     const addCustomEventBtn = document.getElementById('addCustomEventBtn');
     if (addCustomEventBtn) addCustomEventBtn.addEventListener('click', addCustomEvent);
 
+    // 老後の使用可能額 - 利回り変更時に再計算
+    const retirementRate = document.getElementById('retirementReturnRate');
+    if (retirementRate) retirementRate.addEventListener('change', loadRetirementIncomeAnalysis);
+
     // モンテカルロ
     const mcRunPlan   = document.getElementById('mcRunPlanBtn');
     const mcRunActual = document.getElementById('mcRunActualBtn');
@@ -284,6 +288,7 @@ async function runSimulation() {
             // ダッシュボードのグラフのみ描画（他は必要時に遅延読み込み）
             renderAssetsChart();
             renderAssetsBreakdownChart();
+            loadRetirementIncomeAnalysis();
 
             showLoading(false);
         } else {
@@ -1978,6 +1983,58 @@ function showToast(message) {
     toast.textContent = message;
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ==================== 老後の使用可能額 ====================
+
+async function loadRetirementIncomeAnalysis() {
+    const rateEl = document.getElementById('retirementReturnRate');
+    const rate   = rateEl ? parseFloat(rateEl.value) : 0.02;
+
+    try {
+        const result = await eel.get_retirement_income_analysis(rate)();
+        if (!result || !result.success) return;
+        renderRetirementIncomeSection(result.data);
+    } catch (err) {
+        console.warn('老後収支分析エラー:', err);
+    }
+}
+
+function renderRetirementIncomeSection(d) {
+    const baseRow = document.getElementById('retirementIncomeBase');
+    if (baseRow) {
+        const items = [
+            { label: '65歳時 資産',   value: formatCurrency(d.final_assets) },
+            { label: '月額 公的年金', value: formatCurrency(d.pension_monthly) },
+        ];
+        if (d.spouse_monthly > 0) {
+            items.push({ label: '月額 配偶者収入', value: formatCurrency(d.spouse_monthly) });
+        }
+        items.push({ label: '年金等 月額合計', value: formatCurrency(d.extra_monthly) });
+        items.push({ label: '老後の運用利回り', value: `${(d.post_return_rate * 100).toFixed(0)}%` });
+
+        baseRow.innerHTML = items.map(it => `
+            <div class="rb-item">
+                <span class="rb-label">${escapeHTML(it.label)}</span>
+                <span class="rb-value">${escapeHTML(it.value)}</span>
+            </div>
+        `).join('');
+    }
+
+    const tbody = document.getElementById('retirementIncomeRows');
+    if (!tbody) return;
+
+    tbody.innerHTML = d.scenarios.map(s => {
+        const isStd = s.target_age === 90;
+        return `<tr class="${isStd ? 'row-highlight' : ''}">
+            <td>${s.target_age}歳${isStd ? ' ★' : ''}</td>
+            <td>${s.n_years}年間</td>
+            <td>${formatCurrency(s.monthly_withdrawal)}</td>
+            <td>${formatCurrency(s.extra_monthly)}</td>
+            <td class="highlight-col">${formatCurrency(s.total_monthly)}</td>
+            <td class="highlight-col">${formatCurrency(s.total_yearly)}</td>
+        </tr>`;
+    }).join('');
 }
 
 // ==================== モンテカルロ ====================

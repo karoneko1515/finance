@@ -1719,3 +1719,81 @@ body.dark-mode .irregular-expense-item {
 }
 .mc-badge-plan   { background: rgba(59,130,246,0.15);  color: #2563eb; }
 .mc-badge-actual { background: rgba(16,185,129,0.15);  color: #059669; }
+
+/* ==================== 老後使用可能額 ==================== */
+
+.retirement-income-card {
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+}
+.retirement-income-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.2rem;
+}
+.retirement-income-header h2 { margin-bottom: 0.3rem; }
+.retirement-income-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+.retirement-return-control {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 180px;
+}
+.retirement-return-control label {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.retirement-base-row {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    padding: 0.9rem 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    margin-bottom: 1.2rem;
+    font-size: 0.9rem;
+}
+.retirement-base-row .rb-item { display: flex; flex-direction: column; gap: 0.1rem; }
+.retirement-base-row .rb-label { font-size: 0.75rem; color: var(--text-secondary); }
+.retirement-base-row .rb-value { font-weight: 700; color: var(--text-primary); }
+.retirement-table-wrapper { overflow-x: auto; }
+.retirement-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.retirement-table th {
+    padding: 0.6rem 0.9rem;
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+}
+.retirement-table th:first-child { text-align: left; }
+.retirement-table td {
+    padding: 0.65rem 0.9rem;
+    text-align: right;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+.retirement-table td:first-child { text-align: left; font-weight: 600; }
+.retirement-table tbody tr:hover { background: var(--bg-secondary); }
+.retirement-table .highlight-col { color: var(--primary-light); font-weight: 700; }
+.retirement-table thead .highlight-col { color: var(--primary-light); }
+.retirement-table .row-highlight td { background: rgba(59,130,246,0.07); }
+.retirement-note {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-top: 0.8rem;
+    line-height: 1.6;
+}

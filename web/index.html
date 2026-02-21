@@ -88,6 +88,54 @@
                     <h2>資産内訳推移</h2>
                     <div id="assetsBreakdownChart"></div>
                 </div>
+
+                <!-- 老後の月・年間使用可能額 -->
+                <div class="card retirement-income-card">
+                    <div class="retirement-income-header">
+                        <div>
+                            <h2>🏡 老後の月・年間使用可能額</h2>
+                            <p class="retirement-income-desc">
+                                65歳時の資産を均等に取り崩した場合の試算。年金・配偶者収入も含めた合計額を表示します。
+                            </p>
+                        </div>
+                        <div class="retirement-return-control">
+                            <label>老後の運用利回り</label>
+                            <select id="retirementReturnRate" class="settings-input">
+                                <option value="0">0%（保守的・現金のみ）</option>
+                                <option value="0.01">1%</option>
+                                <option value="0.02" selected>2%（標準）</option>
+                                <option value="0.03">3%</option>
+                                <option value="0.04">4%</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- サマリー行 -->
+                    <div id="retirementIncomeBase" class="retirement-base-row"></div>
+
+                    <!-- シナリオ表 -->
+                    <div class="retirement-table-wrapper">
+                        <table class="retirement-table" id="retirementIncomeTable">
+                            <thead>
+                                <tr>
+                                    <th>目標寿命</th>
+                                    <th>取り崩し期間</th>
+                                    <th>月間取り崩し額</th>
+                                    <th>＋ 年金等</th>
+                                    <th class="highlight-col">月間合計</th>
+                                    <th class="highlight-col">年間合計</th>
+                                </tr>
+                            </thead>
+                            <tbody id="retirementIncomeRows">
+                                <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">計算中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="retirement-note">
+                        ※ 取り崩し額は年金現価方式（定額年金）で算出。<br>
+                        ※ 「年金等」は設定された公的年金＋配偶者収入（65歳以降）の合計です。
+                    </p>
+                </div>
             </section>
 
             <!-- 年齢別詳細ビュー -->
