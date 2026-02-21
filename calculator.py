@@ -160,7 +160,7 @@ class LifePlanCalculator:
         elif age <= 49:
             return housing_costs.get("28-49", {})
         else:
-            return housing_costs.get("50-55", {})
+            return housing_costs.get("50-65", {})
 
     def get_phase_for_age(self, age):
         """
@@ -207,13 +207,13 @@ class LifePlanCalculator:
             elif child1_age <= 14:
                 total_allowance += child_allowance["age_3_14"]
 
-        # 第二子
+        # 第二子（3歳未満は第一子と同額、3〜14歳は多子加算で増額）
         if age >= second_child_birth:
             child2_age = age - second_child_birth
             if child2_age <= 2:
-                total_allowance += child_allowance["age_3_14_second_child"]
+                total_allowance += child_allowance["age_0_2"]
             elif child2_age <= 14:
-                total_allowance += child_allowance["age_3_14"]
+                total_allowance += child_allowance["age_3_14_second_child"]
 
         return total_allowance
 
@@ -743,7 +743,7 @@ class LifePlanCalculator:
                         "payment_sources": [
                             {
                                 "source": ps["source"],
-                                "amount": ps["amount"] * (detail["amount"] / university_cost_this_year)
+                                "amount": ps["amount"] * (detail["amount"] / university_cost_this_year if university_cost_this_year > 0 else 0)
                             }
                             for ps in payment_sources
                         ]

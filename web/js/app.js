@@ -70,6 +70,23 @@ function setupEventListeners() {
     if (saveScenarioBtn) {
         saveScenarioBtn.addEventListener('click', saveScenario);
     }
+
+    // 実績管理: 保存・更新ボタン
+    const saveActualBtn = document.getElementById('saveActualBtn');
+    if (saveActualBtn) {
+        saveActualBtn.addEventListener('click', saveActualRecord);
+    }
+    const refreshActualBtn = document.getElementById('refreshActualBtn');
+    if (refreshActualBtn) {
+        refreshActualBtn.addEventListener('click', loadActualView);
+    }
+
+    // 今日の年月をデフォルト入力
+    const now = new Date();
+    const yearEl = document.getElementById('actualYear');
+    const monthEl = document.getElementById('actualMonth');
+    if (yearEl) yearEl.value = now.getFullYear();
+    if (monthEl) monthEl.value = now.getMonth() + 1;
 }
 
 // ========== ビュー切り替え ==========
@@ -116,6 +133,9 @@ function switchView(viewName) {
     } else if (viewName === 'scenario') {
         // 保存済みシナリオを読み込み
         renderSavedScenarios();
+    } else if (viewName === 'actual') {
+        // 実績管理ビューを読み込み
+        loadActualView();
     }
 }
 
@@ -394,33 +414,55 @@ function renderIrregularExpenses(irregularExpenses) {
     section.style.display = 'block';
     let html = '';
 
+    list.innerHTML = '';
+
     irregularExpenses.forEach(expense => {
-        html += `
-            <div class="irregular-expense-item">
-                <div class="irregular-expense-header">
-                    <span class="irregular-expense-type">${expense.type}</span>
-                    <span class="irregular-expense-amount">${formatCurrency(expense.amount)}</span>
-                </div>
-                <div class="irregular-expense-sources">
-                    <span style="font-size: 0.9rem; color: var(--text-secondary);">支払い元:</span>
-        `;
+        const item = document.createElement('div');
+        item.className = 'irregular-expense-item';
+
+        const expenseHeader = document.createElement('div');
+        expenseHeader.className = 'irregular-expense-header';
+
+        const typeSpan = document.createElement('span');
+        typeSpan.className = 'irregular-expense-type';
+        typeSpan.textContent = expense.type;  // textContent でXSS回避
+
+        const amountSpan = document.createElement('span');
+        amountSpan.className = 'irregular-expense-amount';
+        amountSpan.textContent = formatCurrency(expense.amount);
+
+        expenseHeader.appendChild(typeSpan);
+        expenseHeader.appendChild(amountSpan);
+
+        const sourcesDiv = document.createElement('div');
+        sourcesDiv.className = 'irregular-expense-sources';
+
+        const sourcesLabel = document.createElement('span');
+        sourcesLabel.style.cssText = 'font-size: 0.9rem; color: var(--text-secondary);';
+        sourcesLabel.textContent = '支払い元:';
+        sourcesDiv.appendChild(sourcesLabel);
 
         expense.payment_sources.forEach(source => {
-            html += `
-                <div class="irregular-expense-source">
-                    <span class="irregular-expense-source-name">${source.source}</span>
-                    <span class="irregular-expense-source-amount">${formatCurrency(source.amount)}</span>
-                </div>
-            `;
+            const sourceDiv = document.createElement('div');
+            sourceDiv.className = 'irregular-expense-source';
+
+            const sourceNameSpan = document.createElement('span');
+            sourceNameSpan.className = 'irregular-expense-source-name';
+            sourceNameSpan.textContent = source.source;  // textContent でXSS回避
+
+            const sourceAmountSpan = document.createElement('span');
+            sourceAmountSpan.className = 'irregular-expense-source-amount';
+            sourceAmountSpan.textContent = formatCurrency(source.amount);
+
+            sourceDiv.appendChild(sourceNameSpan);
+            sourceDiv.appendChild(sourceAmountSpan);
+            sourcesDiv.appendChild(sourceDiv);
         });
 
-        html += `
-                </div>
-            </div>
-        `;
+        item.appendChild(expenseHeader);
+        item.appendChild(sourcesDiv);
+        list.appendChild(item);
     });
-
-    list.innerHTML = html;
 }
 
 // ========== 月次詳細テーブル描画 ==========
@@ -607,29 +649,48 @@ async function renderSavedScenarios() {
     }
 
     section.style.display = 'block';
-    let html = '';
+    // DOM要素を直接構築してXSSを回避（innerHTML ではなく textContent を使用）
+    list.innerHTML = '';
 
-    scenarios.forEach((scenario, index) => {
-        // 更新日時を表示
+    scenarios.forEach((scenario) => {
         const updatedDate = new Date(scenario.updated_at).toLocaleString('ja-JP');
 
-        html += `
-            <div class="saved-scenario-item">
-                <div class="saved-scenario-header">
-                    <span class="saved-scenario-name">${scenario.name}</span>
-                    <div class="saved-scenario-actions">
-                        <button class="btn btn-primary" onclick="loadScenarioFromDB('${scenario.name}')">表示</button>
-                        <button class="btn btn-secondary" onclick="deleteScenarioFromDB('${scenario.name}')">削除</button>
-                    </div>
-                </div>
-                <div class="saved-scenario-details">
-                    更新日時: ${updatedDate}
-                </div>
-            </div>
-        `;
-    });
+        const item = document.createElement('div');
+        item.className = 'saved-scenario-item';
 
-    list.innerHTML = html;
+        const header = document.createElement('div');
+        header.className = 'saved-scenario-header';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'saved-scenario-name';
+        nameSpan.textContent = scenario.name;  // textContent でXSS回避
+
+        const actions = document.createElement('div');
+        actions.className = 'saved-scenario-actions';
+
+        const loadBtn = document.createElement('button');
+        loadBtn.className = 'btn btn-primary';
+        loadBtn.textContent = '表示';
+        loadBtn.addEventListener('click', () => loadScenarioFromDB(scenario.name));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn btn-secondary';
+        deleteBtn.textContent = '削除';
+        deleteBtn.addEventListener('click', () => deleteScenarioFromDB(scenario.name));
+
+        actions.appendChild(loadBtn);
+        actions.appendChild(deleteBtn);
+        header.appendChild(nameSpan);
+        header.appendChild(actions);
+
+        const details = document.createElement('div');
+        details.className = 'saved-scenario-details';
+        details.textContent = `更新日時: ${updatedDate}`;
+
+        item.appendChild(header);
+        item.appendChild(details);
+        list.appendChild(item);
+    });
 }
 
 async function loadScenarioFromDB(name) {
@@ -782,6 +843,20 @@ function renderComparisonTable(scenarioData) {
 }
 
 // ========== ユーティリティ関数 ==========
+
+/**
+ * XSS対策: HTML特殊文字をエスケープ
+ */
+function escapeHTML(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function formatCurrency(amount) {
     return new Intl.NumberFormat('ja-JP', {
         style: 'currency',
@@ -911,30 +986,82 @@ async function saveAndRecalculate() {
 
         const planData = result.data;
 
-        // フォームから新しい値を取得して更新
-        planData.basic_info.start_age = parseInt(document.getElementById('settingStartAge').value);
-        planData.basic_info.end_age = parseInt(document.getElementById('settingEndAge').value);
-        planData.basic_info.marriage_age = parseInt(document.getElementById('settingMarriageAge').value);
-        planData.basic_info.first_child_birth_age = parseInt(document.getElementById('settingFirstChild').value);
-        planData.basic_info.second_child_birth_age = parseInt(document.getElementById('settingSecondChild').value);
-        planData.life_events.home_purchase.age = parseInt(document.getElementById('settingHomePurchase').value);
+        // フォームから新しい値を取得
+        const startAge = parseInt(document.getElementById('settingStartAge').value);
+        const endAge = parseInt(document.getElementById('settingEndAge').value);
+        const marriageAge = parseInt(document.getElementById('settingMarriageAge').value);
+        const firstChild = parseInt(document.getElementById('settingFirstChild').value);
+        const secondChild = parseInt(document.getElementById('settingSecondChild').value);
+        const homePurchase = parseInt(document.getElementById('settingHomePurchase').value);
+
+        // バリデーション: 年齢の整合性チェック
+        if (isNaN(startAge) || isNaN(endAge) || startAge < 18 || endAge > 100 || startAge >= endAge) {
+            alert('開始年齢・終了年齢が不正です（18〜100歳の範囲で、開始 < 終了にしてください）');
+            showLoading(false);
+            return;
+        }
+        if (isNaN(marriageAge) || marriageAge < startAge || marriageAge > endAge) {
+            alert(`結婚年齢は ${startAge}〜${endAge} 歳の範囲で指定してください`);
+            showLoading(false);
+            return;
+        }
+        if (isNaN(firstChild) || firstChild < startAge || firstChild > endAge) {
+            alert(`第一子誕生年齢は ${startAge}〜${endAge} 歳の範囲で指定してください`);
+            showLoading(false);
+            return;
+        }
+        if (isNaN(secondChild) || secondChild < startAge || secondChild > endAge || secondChild < firstChild) {
+            alert(`第二子誕生年齢は第一子 (${firstChild}歳) 以降かつ ${endAge} 歳以下で指定してください`);
+            showLoading(false);
+            return;
+        }
+        if (isNaN(homePurchase) || homePurchase < startAge || homePurchase > endAge) {
+            alert(`住宅購入年齢は ${startAge}〜${endAge} 歳の範囲で指定してください`);
+            showLoading(false);
+            return;
+        }
+
+        // バリデーション: 投資リターン (0〜50%)
+        const nisaReturn = parseFloat(document.getElementById('settingNisaReturn').value);
+        const taxableReturn = parseFloat(document.getElementById('settingTaxableReturn').value);
+        const educationReturn = parseFloat(document.getElementById('settingEducationReturn').value);
+        const inflationLiving = parseFloat(document.getElementById('settingInflationLiving').value);
+        const inflationEducation = parseFloat(document.getElementById('settingInflationEducation').value);
+
+        for (const [label, val] of [['NISAリターン', nisaReturn], ['特定口座リターン', taxableReturn], ['教育資金リターン', educationReturn]]) {
+            if (isNaN(val) || val < 0 || val > 50) {
+                alert(`${label}は 0〜50% の範囲で指定してください`);
+                showLoading(false);
+                return;
+            }
+        }
+        for (const [label, val] of [['生活費インフレ率', inflationLiving], ['教育費インフレ率', inflationEducation]]) {
+            if (isNaN(val) || val < 0 || val > 20) {
+                alert(`${label}は 0〜20% の範囲で指定してください`);
+                showLoading(false);
+                return;
+            }
+        }
+
+        // 検証済みの値を反映
+        planData.basic_info.start_age = startAge;
+        planData.basic_info.end_age = endAge;
+        planData.basic_info.marriage_age = marriageAge;
+        planData.basic_info.first_child_birth_age = firstChild;
+        planData.basic_info.second_child_birth_age = secondChild;
+        planData.life_events.home_purchase.age = homePurchase;
 
         // 配偶者収入を更新
-        planData.spouse_income['28-47'] = parseInt(document.getElementById('settingSpouseIncome1').value);
-        planData.spouse_income['48-64'] = parseInt(document.getElementById('settingSpouseIncome2').value);
-        planData.spouse_income['65-99'] = parseInt(document.getElementById('settingSpouseIncome3').value);
+        planData.spouse_income['28-47'] = parseInt(document.getElementById('settingSpouseIncome1').value) || 0;
+        planData.spouse_income['48-64'] = parseInt(document.getElementById('settingSpouseIncome2').value) || 0;
+        planData.spouse_income['65-99'] = parseInt(document.getElementById('settingSpouseIncome3').value) || 0;
 
         // 投資設定を更新（パーセントから小数に変換）
-        planData.investment_settings.nisa.expected_return =
-            parseFloat(document.getElementById('settingNisaReturn').value) / 100;
-        planData.investment_settings.taxable_account.expected_return =
-            parseFloat(document.getElementById('settingTaxableReturn').value) / 100;
-        planData.investment_settings.education_fund.expected_return =
-            parseFloat(document.getElementById('settingEducationReturn').value) / 100;
-        planData.inflation_settings.living_expenses_rate =
-            parseFloat(document.getElementById('settingInflationLiving').value) / 100;
-        planData.inflation_settings.education_rate =
-            parseFloat(document.getElementById('settingInflationEducation').value) / 100;
+        planData.investment_settings.nisa.expected_return = nisaReturn / 100;
+        planData.investment_settings.taxable_account.expected_return = taxableReturn / 100;
+        planData.investment_settings.education_fund.expected_return = educationReturn / 100;
+        planData.inflation_settings.living_expenses_rate = inflationLiving / 100;
+        planData.inflation_settings.education_rate = inflationEducation / 100;
 
         // 設定を保存
         const updateResult = await eel.update_plan_data(planData)();
@@ -993,6 +1120,202 @@ window.onclick = function(event) {
     if (event.target === modal) {
         closeSettingsModal();
     }
+}
+
+// ==================== 実績管理 ====================
+
+/**
+ * 実績管理ビューの読み込み（グラフ + 一覧テーブル）
+ */
+async function loadActualView() {
+    try {
+        showLoading(true);
+        const [recordsResult, comparisonResult] = await Promise.all([
+            eel.get_actual_records()(),
+            eel.get_plan_vs_actual()()
+        ]);
+        showLoading(false);
+
+        if (recordsResult.success) {
+            renderActualRecordsTable(recordsResult.data);
+        }
+
+        if (comparisonResult.success) {
+            renderActualComparisonCharts(comparisonResult.data);
+            renderActualSummaryCards(comparisonResult.data);
+        }
+    } catch (err) {
+        console.error('実績ビュー読み込みエラー:', err);
+        showLoading(false);
+    }
+}
+
+/**
+ * 実績レコードを保存する
+ */
+async function saveActualRecord() {
+    const year   = parseInt(document.getElementById('actualYear').value);
+    const month  = parseInt(document.getElementById('actualMonth').value);
+    const age    = parseInt(document.getElementById('actualAge').value);
+    const income = parseInt(document.getElementById('actualIncome').value) || 0;
+    const exp    = parseInt(document.getElementById('actualExpenses').value) || 0;
+    const inv    = parseInt(document.getElementById('actualInvestment').value) || 0;
+    const cash   = parseInt(document.getElementById('actualCashBalance').value) || 0;
+    const notes  = document.getElementById('actualNotes').value || '';
+
+    if (isNaN(year) || year < 2020 || year > 2070) {
+        alert('年は2020〜2070の範囲で入力してください');
+        return;
+    }
+    if (isNaN(month) || month < 1 || month > 12) {
+        alert('月は1〜12で入力してください');
+        return;
+    }
+    if (isNaN(age) || age < 18 || age > 80) {
+        alert('年齢は18〜80歳で入力してください');
+        return;
+    }
+
+    try {
+        showLoading(true);
+        const result = await eel.save_actual_record(year, month, age, income, exp, inv, cash, notes)();
+        showLoading(false);
+
+        if (result.success) {
+            alert('実績データを保存しました');
+            loadActualView();
+        } else {
+            alert('保存に失敗しました: ' + result.error);
+        }
+    } catch (err) {
+        console.error('実績保存エラー:', err);
+        showLoading(false);
+        alert('保存中にエラーが発生しました');
+    }
+}
+
+/**
+ * 実績レコードを削除する
+ */
+async function deleteActualRecord(year, month) {
+    if (!confirm(`${year}年${month}月の実績データを削除しますか？`)) return;
+
+    try {
+        showLoading(true);
+        const result = await eel.delete_actual_record(year, month)();
+        showLoading(false);
+
+        if (result.success) {
+            loadActualView();
+        } else {
+            alert('削除に失敗しました: ' + result.error);
+        }
+    } catch (err) {
+        console.error('実績削除エラー:', err);
+        showLoading(false);
+    }
+}
+
+/**
+ * 実績レコード一覧テーブルを描画
+ */
+function renderActualRecordsTable(records) {
+    const container = document.getElementById('actualRecordsList');
+    if (!container) return;
+
+    if (!records || records.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-secondary);">実績データがありません。上のフォームから入力してください。</p>';
+        return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'actual-records-table';
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = `<tr>
+        <th>年月</th><th>年齢</th>
+        <th>収入（実績）</th><th>支出（実績）</th>
+        <th>投資（実績）</th><th>現金残高</th>
+        <th>メモ</th><th>操作</th>
+    </tr>`;
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    records.forEach(r => {
+        const tr = document.createElement('tr');
+
+        const yearMonthTd = document.createElement('td');
+        yearMonthTd.textContent = `${r.year}年${r.month}月`;
+
+        const ageTd = document.createElement('td');
+        ageTd.textContent = `${r.age}歳`;
+
+        const incomeTd = document.createElement('td');
+        incomeTd.textContent = formatCurrency(r.income_actual);
+
+        const expTd = document.createElement('td');
+        expTd.textContent = formatCurrency(r.expenses_actual);
+
+        const invTd = document.createElement('td');
+        invTd.textContent = formatCurrency(r.investment_actual);
+
+        const cashTd = document.createElement('td');
+        cashTd.textContent = formatCurrency(r.cash_balance_actual);
+
+        const notesTd = document.createElement('td');
+        notesTd.textContent = r.notes || '';
+        notesTd.style.maxWidth = '150px';
+        notesTd.style.overflow = 'hidden';
+        notesTd.style.textOverflow = 'ellipsis';
+        notesTd.style.whiteSpace = 'nowrap';
+
+        const actionTd = document.createElement('td');
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-secondary btn-sm';
+        delBtn.textContent = '削除';
+        delBtn.addEventListener('click', () => deleteActualRecord(r.year, r.month));
+        actionTd.appendChild(delBtn);
+
+        tr.append(yearMonthTd, ageTd, incomeTd, expTd, invTd, cashTd, notesTd, actionTd);
+        tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    container.innerHTML = '';
+    container.appendChild(table);
+}
+
+/**
+ * サマリーカード（累計乖離）を描画
+ */
+function renderActualSummaryCards(comparisonData) {
+    const cardsEl = document.getElementById('actualSummaryCards');
+    if (!cardsEl) return;
+
+    const entered = comparisonData.filter(d => d.months_entered > 0);
+    if (entered.length === 0) { cardsEl.style.display = 'none'; return; }
+
+    cardsEl.style.display = 'flex';
+
+    // 12ヶ月入力済みの年のみ乖離計算
+    const fullYears = comparisonData.filter(d => d.income_diff !== null);
+    const totalIncomeDiff = fullYears.reduce((s, d) => s + (d.income_diff || 0), 0);
+    const totalExpDiff    = fullYears.reduce((s, d) => s + (d.expenses_diff || 0), 0);
+    const totalInvDiff    = fullYears.reduce((s, d) => s + (d.investment_diff || 0), 0);
+    const totalMonths     = entered.reduce((s, d) => s + d.months_entered, 0);
+
+    const setCard = (id, val, invertColor = false) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = (val >= 0 ? '+' : '') + formatCurrency(val);
+        const positive = invertColor ? val <= 0 : val >= 0;
+        el.className = 'amount ' + (positive ? 'text-green' : 'text-red');
+    };
+
+    document.getElementById('actualMonthsCount').textContent = `${totalMonths}ヶ月`;
+    setCard('actualIncomeDiff', totalIncomeDiff);
+    setCard('actualExpensesDiff', totalExpDiff, true);  // 支出は少ない方がgood
+    setCard('actualInvestmentDiff', totalInvDiff);
 }
 
 console.log('app.js ロード完了');

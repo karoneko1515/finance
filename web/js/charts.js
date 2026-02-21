@@ -831,4 +831,74 @@ function renderAssetsPieCharts(assetsData) {
     Plotly.newPlot('assetsEndPieChart', [endTrace], endLayout, config);
 }
 
+// ==================== 計画 vs 実績グラフ ====================
+
+/**
+ * 計画値と実績値の比較グラフを3系統（収入・支出・投資）描画
+ * @param {Array} comparisonData - get_plan_vs_actual() の返り値
+ */
+function renderActualComparisonCharts(comparisonData) {
+    if (!comparisonData || comparisonData.length === 0) return;
+
+    const isDark = document.body.classList.contains('dark-mode');
+    const textColor  = isDark ? '#f9fafb' : '#111827';
+    const gridColor  = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+    const plotBg     = isDark ? '#1f2937' : '#ffffff';
+    const paperBg    = isDark ? '#111827' : '#ffffff';
+    const config = { responsive: true, displayModeBar: false };
+
+    // 全年の計画値
+    const ages = comparisonData.map(d => `${d.age}歳 (${d.year})`);
+    const planIncome     = comparisonData.map(d => Math.round(d.plan_income / 10000));
+    const planExpenses   = comparisonData.map(d => Math.round(d.plan_expenses / 10000));
+    const planInvestment = comparisonData.map(d => Math.round(d.plan_investment / 10000));
+
+    // 実績値（未入力はnull → グラフに表示されない）
+    const actualIncome     = comparisonData.map(d => d.actual_income     != null ? Math.round(d.actual_income / 10000)     : null);
+    const actualExpenses   = comparisonData.map(d => d.actual_expenses   != null ? Math.round(d.actual_expenses / 10000)   : null);
+    const actualInvestment = comparisonData.map(d => d.actual_investment  != null ? Math.round(d.actual_investment / 10000) : null);
+
+    // 乖離（差分）
+    const incomeDiff     = comparisonData.map(d => d.income_diff     != null ? Math.round(d.income_diff / 10000)     : null);
+    const expensesDiff   = comparisonData.map(d => d.expenses_diff   != null ? Math.round(d.expenses_diff / 10000)   : null);
+    const investmentDiff = comparisonData.map(d => d.investment_diff != null ? Math.round(d.investment_diff / 10000) : null);
+
+    const baseLayout = (title) => ({
+        title: { text: title, font: { color: textColor } },
+        xaxis: { tickfont: { color: textColor, size: 10 }, gridcolor: gridColor, tickangle: -45 },
+        yaxis: { title: '万円', tickfont: { color: textColor }, gridcolor: gridColor },
+        yaxis2: { title: '乖離（万円）', overlaying: 'y', side: 'right', tickfont: { color: textColor }, zeroline: true, zerolinecolor: gridColor },
+        plot_bgcolor: plotBg,
+        paper_bgcolor: paperBg,
+        font: { color: textColor },
+        legend: { font: { color: textColor } },
+        barmode: 'overlay',
+        margin: { t: 50, r: 80, b: 100, l: 60 }
+    });
+
+    // ---- 収入グラフ ----
+    Plotly.newPlot('actualIncomeChart', [
+        { type: 'bar', name: '計画収入', x: ages, y: planIncome,    marker: { color: 'rgba(59,130,246,0.3)' }, yaxis: 'y' },
+        { type: 'bar', name: '実績収入', x: ages, y: actualIncome,  marker: { color: 'rgba(16,185,129,0.8)' }, yaxis: 'y' },
+        { type: 'scatter', mode: 'lines+markers', name: '乖離', x: ages, y: incomeDiff,
+          line: { color: '#f59e0b', width: 2 }, marker: { size: 6 }, yaxis: 'y2' }
+    ], baseLayout('収入: 計画 vs 実績'), config);
+
+    // ---- 支出グラフ ----
+    Plotly.newPlot('actualExpensesChart', [
+        { type: 'bar', name: '計画支出', x: ages, y: planExpenses,    marker: { color: 'rgba(239,68,68,0.3)' }, yaxis: 'y' },
+        { type: 'bar', name: '実績支出', x: ages, y: actualExpenses,  marker: { color: 'rgba(239,68,68,0.8)' }, yaxis: 'y' },
+        { type: 'scatter', mode: 'lines+markers', name: '乖離', x: ages, y: expensesDiff,
+          line: { color: '#f59e0b', width: 2 }, marker: { size: 6 }, yaxis: 'y2' }
+    ], baseLayout('支出: 計画 vs 実績'), config);
+
+    // ---- 投資グラフ ----
+    Plotly.newPlot('actualInvestmentChart', [
+        { type: 'bar', name: '計画投資', x: ages, y: planInvestment,    marker: { color: 'rgba(139,92,246,0.3)' }, yaxis: 'y' },
+        { type: 'bar', name: '実績投資', x: ages, y: actualInvestment,  marker: { color: 'rgba(139,92,246,0.8)' }, yaxis: 'y' },
+        { type: 'scatter', mode: 'lines+markers', name: '乖離', x: ages, y: investmentDiff,
+          line: { color: '#f59e0b', width: 2 }, marker: { size: 6 }, yaxis: 'y2' }
+    ], baseLayout('投資額: 計画 vs 実績'), config);
+}
+
 console.log('charts.js ロード完了');

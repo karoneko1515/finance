@@ -4,9 +4,23 @@ PythonバックエンドとJavaScriptフロントエンドを接続
 """
 import eel
 import json
+import logging
 from data_loader import DataLoader
 from calculator import LifePlanCalculator
 from scenario_db import ScenarioDatabase
+
+# 内部エラーをファイルにログ（フロントエンドには詳細を返さない）
+logging.basicConfig(
+    filename='app.log',
+    level=logging.ERROR,
+    format='%(asctime)s %(levelname)s %(message)s'
+)
+
+def _api_error(e):
+    """内部エラーをログに記録し、汎用エラーメッセージを返す（詳細情報を外部に漏らさない）"""
+    logging.error("APIエラー: %s", e, exc_info=True)
+    return {"success": False, "error": "処理中にエラーが発生しました"}
+
 
 # Eelの初期化
 eel.init('web')
@@ -32,10 +46,7 @@ def run_simulation():
             "data": calculator.export_to_dict()
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -56,10 +67,7 @@ def get_age_detail(age):
             "data": monthly_details
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -80,10 +88,7 @@ def get_age_assets_detail(age):
             "data": detail
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -101,10 +106,7 @@ def get_education_summary():
             "data": summary
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -122,10 +124,7 @@ def get_dividend_summary():
             "data": summary
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -142,10 +141,7 @@ def get_plan_data():
             "data": data_loader.get_all_data()
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -176,10 +172,7 @@ def update_plan_data(plan_json):
             "message": "プラン設定を更新しました"
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -202,10 +195,7 @@ def reset_plan_to_default():
             "message": "デフォルト設定に戻しました"
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -230,10 +220,7 @@ def export_data_csv():
             "data": csv_string
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -253,10 +240,7 @@ def save_scenario_to_db(name, settings, result_data):
         result = scenario_db.save_scenario(name, settings, result_data)
         return result
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -283,10 +267,7 @@ def load_scenario_from_db(name):
                 "error": "シナリオが見つかりません"
             }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -304,10 +285,7 @@ def list_saved_scenarios():
             "data": scenarios
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -325,10 +303,7 @@ def delete_scenario_from_db(name):
         result = scenario_db.delete_scenario(name)
         return result
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
 
 
 @eel.expose
@@ -386,10 +361,148 @@ def calculate_scenario_comparison(scenarios):
             "data": results
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return _api_error(e)
+
+
+# ==================== 実績管理 API ====================
+
+@eel.expose
+def save_actual_record(record_year, record_month, age,
+                       income_actual, expenses_actual,
+                       investment_actual, cash_balance_actual, notes=""):
+    """
+    月次実績データを保存
+
+    Args:
+        record_year:  記録年（例: 2025）
+        record_month: 記録月 (1-12)
+        age:          その月の年齢
+        income_actual:       実際の収入（円）
+        expenses_actual:     実際の支出（円）
+        investment_actual:   実際の投資（円）
+        cash_balance_actual: 月末現金残高（円）
+        notes:               メモ（オプション）
+
+    Returns:
+        dict: 保存結果
+    """
+    try:
+        if not (1 <= int(record_month) <= 12):
+            return {"success": False, "error": "月は1〜12で指定してください"}
+        return scenario_db.save_actual_record(
+            record_year, record_month, age,
+            income_actual, expenses_actual,
+            investment_actual, cash_balance_actual, notes
+        )
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def get_actual_records():
+    """
+    全実績レコードを取得
+
+    Returns:
+        dict: 実績レコードリスト
+    """
+    try:
+        records = scenario_db.get_all_actual_records()
+        return {"success": True, "data": records}
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def delete_actual_record(record_year, record_month):
+    """
+    指定年月の実績を削除
+
+    Args:
+        record_year:  記録年
+        record_month: 記録月
+
+    Returns:
+        dict: 削除結果
+    """
+    try:
+        return scenario_db.delete_actual_record(record_year, record_month)
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def get_plan_vs_actual():
+    """
+    計画値と実績値の比較データを生成
+
+    Returns:
+        dict: 比較データ（計画・実績・乖離）
+    """
+    try:
+        if not calculator.yearly_data:
+            return {"success": False, "error": "先にシミュレーションを実行してください"}
+
+        records = scenario_db.get_all_actual_records()
+
+        # 月次実績をキーにした辞書 {(year, month): record}
+        actual_map = {(r["year"], r["month"]): r for r in records}
+
+        # 計画値の月次データを年単位に集計し、実績と照合
+        comparison = []
+        start_year = 2025  # TODO: basic_infoから取得
+        start_age = calculator.basic_info.get("start_age", 25)
+
+        for yd in calculator.yearly_data:
+            age = yd["age"]
+            sim_year = start_year + (age - start_age)
+
+            # 12ヶ月分の実績を合計
+            actual_income = 0
+            actual_expenses = 0
+            actual_investment = 0
+            actual_cash = None
+            months_entered = 0
+
+            for m in range(1, 13):
+                key = (sim_year, m)
+                if key in actual_map:
+                    r = actual_map[key]
+                    actual_income += r["income_actual"]
+                    actual_expenses += r["expenses_actual"]
+                    actual_investment += r["investment_actual"]
+                    actual_cash = r["cash_balance_actual"]  # 最終月の残高
+                    months_entered += 1
+
+            entry = {
+                "age": age,
+                "year": sim_year,
+                "plan_income": yd.get("income_total", 0),
+                "plan_expenses": yd.get("expenses_total", 0),
+                "plan_investment": yd.get("investment_total", 0),
+                "plan_assets": yd.get("assets_end", 0),
+                "actual_income": actual_income if months_entered > 0 else None,
+                "actual_expenses": actual_expenses if months_entered > 0 else None,
+                "actual_investment": actual_investment if months_entered > 0 else None,
+                "actual_cash": actual_cash,
+                "months_entered": months_entered,
+            }
+
+            # 乖離計算（実績がある場合のみ）
+            if months_entered == 12:
+                entry["income_diff"] = actual_income - yd.get("income_total", 0)
+                entry["expenses_diff"] = actual_expenses - yd.get("expenses_total", 0)
+                entry["investment_diff"] = actual_investment - yd.get("investment_total", 0)
+            else:
+                entry["income_diff"] = None
+                entry["expenses_diff"] = None
+                entry["investment_diff"] = None
+
+            comparison.append(entry)
+
+        return {"success": True, "data": comparison}
+    except Exception as e:
+        return _api_error(e)
 
 
 def main():

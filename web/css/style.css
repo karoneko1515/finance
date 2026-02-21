@@ -940,3 +940,117 @@ body.dark-mode .irregular-expense-item {
     color: #dc2626;
     background-color: rgba(220, 38, 38, 0.1);
 }
+
+/* ==================== 実績管理ビュー ==================== */
+
+.nav-tab-actual {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(59, 130, 246, 0.15));
+    border-left: 2px solid var(--accent-green) !important;
+}
+
+.nav-tab-actual.active {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(59, 130, 246, 0.3));
+}
+
+.actual-header-section {
+    margin-bottom: 1.5rem;
+}
+
+.actual-header-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.actual-description {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.actual-input-card {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.actual-input-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.actual-input-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.actual-input-row .settings-item {
+    flex: 1;
+    min-width: 160px;
+}
+
+.actual-summary-cards {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.actual-stat-card {
+    flex: 1;
+    min-width: 180px;
+    padding: 1rem 1.25rem;
+}
+
+.actual-stat-card h4 {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.actual-records-table-wrapper {
+    overflow-x: auto;
+    margin-top: 0.5rem;
+}
+
+.actual-records-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.actual-records-table th,
+.actual-records-table td {
+    padding: 0.6rem 0.8rem;
+    text-align: right;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.actual-records-table th:first-child,
+.actual-records-table td:first-child,
+.actual-records-table th:last-child,
+.actual-records-table td:last-child {
+    text-align: center;
+}
+
+.actual-records-table th {
+    background-color: var(--bg-secondary);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.actual-records-table tbody tr:hover {
+    background-color: var(--bg-secondary);
+}
+
+.btn-sm {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.8rem;
+}
