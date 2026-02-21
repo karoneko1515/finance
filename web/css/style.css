@@ -1159,13 +1159,29 @@ body.dark-mode .irregular-expense-item {
     margin-bottom: 1.5rem;
 }
 
+.editor-table-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.2rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.editor-table-header h3,
+.editor-table-card h3,
 .editor-table-card h4 {
     margin: 0;
-    padding: 0.9rem 1.2rem;
     font-size: 0.95rem;
     color: var(--text-secondary);
     font-weight: 600;
-    border-bottom: 1px solid var(--border-color);
+}
+
+/* テーブル横スクロール対応 */
+.editor-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .editor-table {
@@ -1225,6 +1241,27 @@ body.dark-mode .irregular-expense-item {
 .btn-salary-edit:hover { border-color: var(--accent-color); color: var(--accent-color); }
 
 /* ── ライフイベントエディタ ── */
+.editor-events-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.editor-events-card h3 {
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.preset-events-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+}
+
 .preset-event-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);

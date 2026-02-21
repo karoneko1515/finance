@@ -1176,6 +1176,9 @@ async function loadActualView() {
             renderActualComparisonCharts(comparisonResult.data);
             renderActualSummaryCards(comparisonResult.data);
         }
+
+        // ゴール達成率ゲージを自動ロード
+        loadGoalGauges();
     } catch (err) {
         console.error('実績ビュー読み込みエラー:', err);
         showLoading(false);
@@ -1214,7 +1217,7 @@ async function saveActualRecord() {
         showLoading(false);
 
         if (result.success) {
-            alert('実績データを保存しました');
+            showToast('実績データを保存しました');
             loadActualView();
         } else {
             alert('保存に失敗しました: ' + result.error);

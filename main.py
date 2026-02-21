@@ -450,8 +450,14 @@ def get_plan_vs_actual():
 
         # 計画値の月次データを年単位に集計し、実績と照合
         comparison = []
-        start_year = 2025  # TODO: basic_infoから取得
+        from datetime import date as _date
         start_age = calculator.basic_info.get("start_age", 25)
+        # 実績レコードがあればそこから開始年を逆算、なければ現在年を起点に推定
+        if records:
+            r0 = records[0]
+            start_year = r0["year"] - (r0["age"] - start_age)
+        else:
+            start_year = _date.today().year
 
         for yd in calculator.yearly_data:
             age = yd["age"]
