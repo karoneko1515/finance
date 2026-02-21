@@ -1609,3 +1609,113 @@ body.dark-mode .irregular-expense-item {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
 }
+
+/* ==================== モンテカルロ ==================== */
+
+.nav-tab-mc {
+    background: linear-gradient(135deg, #6d28d9, #8b5cf6);
+    color: #fff !important;
+    font-weight: 600;
+}
+.nav-tab-mc:hover, .nav-tab-mc.active {
+    background: linear-gradient(135deg, #5b21b6, #7c3aed) !important;
+    color: #fff !important;
+}
+
+.mc-header {
+    margin-bottom: 1.5rem;
+}
+.mc-header h2 { margin-bottom: 0.5rem; }
+.mc-description {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.mc-params-card { padding: 1.5rem; margin-bottom: 1.5rem; }
+.mc-params-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+}
+
+.mc-run-buttons {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.mc-run-btn { min-width: 180px; }
+
+.btn-mc-actual {
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: #fff;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.btn-mc-actual:hover { opacity: 0.85; }
+
+.mc-loading-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+.mc-loading-bar .spinner {
+    width: 20px;
+    height: 20px;
+    border-width: 2px;
+}
+
+.mc-empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.8;
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    margin: 1rem 0;
+}
+
+.mc-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.mc-summary-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    box-shadow: var(--shadow);
+}
+.mc-summary-card .mc-card-label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+.mc-summary-card .mc-card-value {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.mc-summary-card .mc-card-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.3rem;
+    font-weight: 600;
+}
+.mc-badge-plan   { background: rgba(59,130,246,0.15);  color: #2563eb; }
+.mc-badge-actual { background: rgba(16,185,129,0.15);  color: #059669; }

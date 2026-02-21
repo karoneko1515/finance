@@ -44,6 +44,7 @@
             <button class="nav-tab" data-view="scenario">シナリオ比較</button>
             <button class="nav-tab nav-tab-actual" data-view="actual">📊 実績管理</button>
             <button class="nav-tab nav-tab-editor" data-view="editor">✏️ データ編集</button>
+            <button class="nav-tab nav-tab-mc" data-view="montecarlo">🎲 モンテカルロ</button>
         </nav>
 
         <!-- メインコンテンツ -->
@@ -662,6 +663,81 @@
             </div>
         </div>
     </div>
+
+    <!-- モンテカルロビュー -->
+    <section id="montecarlo-view" class="view">
+        <div class="mc-header">
+            <h2>🎲 モンテカルロ シミュレーション</h2>
+            <p class="mc-description">
+                投資リターンを確率分布でランダム化してN回シミュレーション。<br>
+                最悪ケース・中央値・最良ケースの資産推移と最終資産の分布を可視化します。
+            </p>
+        </div>
+
+        <!-- パラメータ設定 -->
+        <div class="card mc-params-card">
+            <div class="mc-params-grid">
+                <div class="settings-item">
+                    <label>シミュレーション回数</label>
+                    <select id="mcNSimulations" class="settings-input">
+                        <option value="100">100回（高速・目安確認）</option>
+                        <option value="300" selected>300回（標準）</option>
+                        <option value="1000">1000回（高精度・低速）</option>
+                    </select>
+                </div>
+                <div class="settings-item">
+                    <label>リターン変動幅（標準偏差）</label>
+                    <select id="mcReturnStd" class="settings-input">
+                        <option value="0.05">±5%（低リスク想定）</option>
+                        <option value="0.08" selected>±8%（標準・株式混合）</option>
+                        <option value="0.12">±12%（高リスク・株式中心）</option>
+                        <option value="0.18">±18%（超高リスク）</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mc-run-buttons">
+                <button class="btn btn-primary mc-run-btn" id="mcRunPlanBtn">
+                    📋 プラン通りで実行
+                </button>
+                <button class="btn btn-mc-actual mc-run-btn" id="mcRunActualBtn">
+                    📊 実績ベースで実行
+                </button>
+                <button class="btn btn-secondary" id="mcClearBtn">🗑 クリア</button>
+            </div>
+            <div id="mcLoadingBar" class="mc-loading-bar" style="display:none;">
+                <div class="spinner"></div>
+                <span id="mcLoadingText">シミュレーション実行中...</span>
+            </div>
+        </div>
+
+        <!-- 結果なし状態 -->
+        <div id="mcEmptyState" class="mc-empty-state">
+            <p>上の「実行」ボタンを押してシミュレーションを開始してください。<br>
+               プラン通りと実績ベースの両方を実行すると、同じグラフ上で比較できます。</p>
+        </div>
+
+        <!-- 結果セクション -->
+        <div id="mcResultSection" style="display:none;">
+
+            <!-- サマリーカード -->
+            <div id="mcSummaryCards" class="mc-summary-grid"></div>
+
+            <!-- 資産推移グラフ -->
+            <div class="chart-container">
+                <h3>資産推移（信頼区間バンド）</h3>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.5rem;">
+                    濃い帯: 25〜75パーセンタイル　薄い帯: 5〜95パーセンタイル　実線: 中央値(p50)　破線: 平均
+                </p>
+                <div id="mcChart"></div>
+            </div>
+
+            <!-- 最終資産分布 -->
+            <div class="chart-container">
+                <h3>65歳時点 資産分布（パーセンタイル比較）</h3>
+                <div id="mcDistributionChart"></div>
+            </div>
+        </div>
+    </section>
 
     <!-- JavaScriptファイル -->
     <script src="js/app.js"></script>

@@ -1013,4 +1013,110 @@ function renderSalaryCurveChart(salaryData) {
     });
 }
 
+// ========== モンテカルロ 資産推移グラフ ==========
+/**
+ * モンテカルロ結果を信頼区間バンド付きで描画
+ * @param {Array} results - [{label, color, data: {ages,p5,p25,p50,p75,p95,mean}}, ...]
+ * @param {string} elementId
+ */
+function renderMonteCarloChart(results, elementId) {
+    if (!results || results.length === 0) return;
+
+    const traces = [];
+
+    results.forEach(({ label, color, data }) => {
+        const ages = data.ages;
+        const rev  = (arr) => arr.slice().reverse();
+        const revAges = ages.slice().reverse();
+
+        // 5-95% バンド（薄い）
+        traces.push({
+            x: [...ages, ...revAges],
+            y: [...data.p95, ...rev(data.p5)],
+            fill: 'toself',
+            fillcolor: color.band95,
+            line: { color: 'transparent' },
+            name: `5-95% (${label})`,
+            showlegend: true,
+            hoverinfo: 'skip',
+        });
+
+        // 25-75% バンド（濃い）
+        traces.push({
+            x: [...ages, ...revAges],
+            y: [...data.p75, ...rev(data.p25)],
+            fill: 'toself',
+            fillcolor: color.band75,
+            line: { color: 'transparent' },
+            name: `25-75% (${label})`,
+            showlegend: true,
+            hoverinfo: 'skip',
+        });
+
+        // 中央値ライン
+        traces.push({
+            x: ages, y: data.p50,
+            type: 'scatter', mode: 'lines',
+            name: `中央値 (${label})`,
+            line: { color: color.median, width: 2.5 },
+            hovertemplate: `%{x}歳 中央値(${label}): %{y:,.0f}円<extra></extra>`,
+        });
+
+        // 平均ライン（破線）
+        traces.push({
+            x: ages, y: data.mean,
+            type: 'scatter', mode: 'lines',
+            name: `平均 (${label})`,
+            line: { color: color.mean, width: 1.5, dash: 'dot' },
+            hovertemplate: `%{x}歳 平均(${label}): %{y:,.0f}円<extra></extra>`,
+        });
+    });
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        xaxis: { title: '年齢', dtick: 5, gridcolor: isDarkMode ? '#374151' : '#e5e7eb' },
+        yaxis: { title: '資産額 (円)', tickformat: ',.0f', gridcolor: isDarkMode ? '#374151' : '#e5e7eb' },
+        hovermode: 'x unified',
+        legend: { orientation: 'h', y: -0.2 },
+        margin: { t: 20, r: 30, b: 80, l: 80 },
+    };
+
+    Plotly.newPlot(elementId, traces, layout, { responsive: true, displaylogo: false });
+}
+
+// ========== モンテカルロ 最終資産分布グラフ ==========
+/**
+ * 各シナリオの最終資産パーセンタイルをグループ棒グラフで表示
+ * @param {Array} results - [{label, color, data}, ...]
+ * @param {string} elementId
+ */
+function renderMCDistributionChart(results, elementId) {
+    if (!results || results.length === 0) return;
+
+    const percentileLabels = ['最悪 (p5)', '悪い (p25)', '中央 (p50)', '良い (p75)', '最良 (p95)', '平均'];
+    const keys = ['final_p5', 'final_p25', 'final_p50', 'final_p75', 'final_p95', 'final_mean'];
+
+    const traces = results.map(({ label, color, data }) => ({
+        x: percentileLabels,
+        y: keys.map(k => data[k] || 0),
+        type: 'bar',
+        name: label,
+        marker: { color: color.median, opacity: 0.8 },
+        hovertemplate: `%{x} (${label}): %{y:,.0f}円<extra></extra>`,
+    }));
+
+    const layout = {
+        ...getPlotlyTheme(),
+        title: '',
+        barmode: 'group',
+        xaxis: { gridcolor: isDarkMode ? '#374151' : '#e5e7eb' },
+        yaxis: { title: '資産額 (円)', tickformat: ',.0f', gridcolor: isDarkMode ? '#374151' : '#e5e7eb' },
+        legend: { orientation: 'h', y: -0.2 },
+        margin: { t: 20, r: 30, b: 80, l: 80 },
+    };
+
+    Plotly.newPlot(elementId, traces, layout, { responsive: true, displaylogo: false });
+}
+
 console.log('charts.js ロード完了');

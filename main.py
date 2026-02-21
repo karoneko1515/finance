@@ -967,6 +967,49 @@ def get_age_for_year(target_year):
         return _api_error(e)
 
 
+@eel.expose
+def run_monte_carlo_simulation(n_simulations=300, return_std=0.08, base_type="plan"):
+    """
+    モンテカルロシミュレーションを実行
+
+    Args:
+        n_simulations (int): シミュレーション回数 (100/300/1000)
+        return_std (float): 投資リターンの標準偏差 (0.05〜0.20)
+        base_type (str): "plan" (プラン通り) または "actual" (実績ベース)
+
+    Returns:
+        dict: パーセンタイル統計データ
+    """
+    try:
+        if not calculator.yearly_data:
+            calculator.simulate_30_years()
+
+        actual_cash_offset = 0
+        actual_age = None
+
+        if base_type == "actual":
+            records = scenario_db.get_all_actual_records()
+            if not records:
+                return {"success": False, "error": "実績データがありません。先に実績を入力してください"}
+            latest = records[-1]
+            actual_age = latest["age"]
+            actual_cash = latest["cash_balance_actual"]
+            plan_entry = next((d for d in calculator.yearly_data if d["age"] == actual_age), None)
+            if plan_entry:
+                actual_cash_offset = actual_cash - plan_entry.get("cash", 0)
+
+        mc_data = calculator.run_monte_carlo(
+            n_simulations=int(n_simulations),
+            return_std=float(return_std),
+            actual_cash_offset=actual_cash_offset,
+            actual_age=actual_age,
+        )
+        mc_data["base_type"] = base_type
+        return {"success": True, "data": mc_data}
+    except Exception as e:
+        return _api_error(e)
+
+
 def main():
     """メイン関数"""
     import gc

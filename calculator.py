@@ -1069,6 +1069,78 @@ class LifePlanCalculator:
         }
 
 
+    def run_monte_carlo(self, n_simulations=300, return_std=0.08,
+                        actual_cash_offset=0, actual_age=None):
+        """
+        モンテカルロシミュレーション
+
+        投資リターンを正規分布でランダム化してN回実行し、
+        資産推移のパーセンタイル統計を返す。
+
+        Args:
+            n_simulations (int): シミュレーション回数
+            return_std (float): 年間リターンの標準偏差 (例: 0.08 = ±8%)
+            actual_cash_offset (float): 実績ベース時の現金差分オフセット
+            actual_age (int|None): オフセットを適用する開始年齢
+
+        Returns:
+            dict: ages, p5/p25/p50/p75/p95/mean の各パーセンタイルと最終資産統計
+        """
+        start_age = self.basic_info["start_age"]
+        end_age = self.basic_info["end_age"]
+        n_years = end_age - start_age + 1
+
+        base_nisa    = self.investment_settings["nisa"]["expected_return"]
+        base_taxable = self.investment_settings["taxable_account"]["expected_return"]
+        base_edu     = self.investment_settings["education_fund"]["expected_return"]
+
+        results = np.zeros((n_simulations, n_years))
+
+        for i in range(n_simulations):
+            # ランダムリターン生成
+            nisa_r    = float(np.clip(np.random.normal(base_nisa,    return_std),       -0.5, 1.5))
+            taxable_r = float(np.clip(np.random.normal(base_taxable, return_std),       -0.5, 1.5))
+            edu_r     = float(np.clip(np.random.normal(base_edu,     return_std * 0.5), -0.3, 0.5))
+
+            # 一時的にリターン率を変更
+            self.investment_settings["nisa"]["expected_return"]             = nisa_r
+            self.investment_settings["taxable_account"]["expected_return"]  = taxable_r
+            self.investment_settings["education_fund"]["expected_return"]   = edu_r
+
+            _, yearly = self.simulate_30_years()
+
+            for j, yd in enumerate(yearly):
+                offset = actual_cash_offset if (actual_age and yd["age"] >= actual_age) else 0
+                results[i, j] = yd["assets_end"] + offset
+
+        # リターン率・シミュレーション結果を元に戻す
+        self.investment_settings["nisa"]["expected_return"]             = base_nisa
+        self.investment_settings["taxable_account"]["expected_return"]  = base_taxable
+        self.investment_settings["education_fund"]["expected_return"]   = base_edu
+        self.simulate_30_years()
+
+        ages = list(range(start_age, end_age + 1))
+        final = results[:, -1]
+
+        return {
+            "ages": ages,
+            "p5":   np.percentile(results, 5,  axis=0).tolist(),
+            "p25":  np.percentile(results, 25, axis=0).tolist(),
+            "p50":  np.percentile(results, 50, axis=0).tolist(),
+            "p75":  np.percentile(results, 75, axis=0).tolist(),
+            "p95":  np.percentile(results, 95, axis=0).tolist(),
+            "mean": np.mean(results, axis=0).tolist(),
+            "final_p5":   float(np.percentile(final, 5)),
+            "final_p25":  float(np.percentile(final, 25)),
+            "final_p50":  float(np.percentile(final, 50)),
+            "final_p75":  float(np.percentile(final, 75)),
+            "final_p95":  float(np.percentile(final, 95)),
+            "final_mean": float(np.mean(final)),
+            "n_simulations": n_simulations,
+            "return_std": return_std,
+        }
+
+
 # テスト用
 if __name__ == "__main__":
     calc = LifePlanCalculator()

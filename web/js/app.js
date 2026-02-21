@@ -5,6 +5,7 @@
 
 // グローバル状態
 let simulationData = null;
+let mcResults = { plan: null, actual: null }; // モンテカルロ結果
 let currentAge = 25;
 let isDarkMode = false;
 let currentScenarioResults = null; // 現在のシナリオ比較結果
@@ -137,6 +138,14 @@ function setupEventListeners() {
     // カスタムイベント追加ボタン
     const addCustomEventBtn = document.getElementById('addCustomEventBtn');
     if (addCustomEventBtn) addCustomEventBtn.addEventListener('click', addCustomEvent);
+
+    // モンテカルロ
+    const mcRunPlan   = document.getElementById('mcRunPlanBtn');
+    const mcRunActual = document.getElementById('mcRunActualBtn');
+    const mcClear     = document.getElementById('mcClearBtn');
+    if (mcRunPlan)   mcRunPlan.addEventListener('click',   () => runMonteCarlo('plan'));
+    if (mcRunActual) mcRunActual.addEventListener('click', () => runMonteCarlo('actual'));
+    if (mcClear)     mcClear.addEventListener('click',    clearMonteCarloResults);
 }
 
 // ========== ビュー切り替え ==========
@@ -189,6 +198,9 @@ function switchView(viewName) {
     } else if (viewName === 'editor') {
         // データ編集ビューを読み込み
         loadEditorView();
+    } else if (viewName === 'montecarlo') {
+        // モンテカルロビューを表示（既存結果があれば再描画）
+        renderMonteCarloView();
     }
 }
 
@@ -819,22 +831,28 @@ function renderComparisonTable(scenarioData) {
     const baselineYearly = baseline.yearly_data;
     const comparisonYearly = comparison.yearly_data;
 
-    const baselineFinalAssets = baseline.final_assets;
-    const comparisonFinalAssets = comparison.final_assets;
+    const safePercent = (diff, base) => {
+        if (!base || base === 0 || !isFinite(base)) return '0.0';
+        const p = ((diff / base) * 100).toFixed(1);
+        return isFinite(parseFloat(p)) ? p : '0.0';
+    };
+
+    const baselineFinalAssets = baseline.final_assets || 0;
+    const comparisonFinalAssets = comparison.final_assets || 0;
     const assetsDiff = comparisonFinalAssets - baselineFinalAssets;
-    const assetsDiffPercent = ((assetsDiff / baselineFinalAssets) * 100).toFixed(1);
+    const assetsDiffPercent = safePercent(assetsDiff, baselineFinalAssets);
 
     // 累積キャッシュフローを計算
-    const baselineCumulativeCF = baselineYearly.reduce((sum, y) => sum + y.cashflow_annual, 0);
-    const comparisonCumulativeCF = comparisonYearly.reduce((sum, y) => sum + y.cashflow_annual, 0);
+    const baselineCumulativeCF = baselineYearly.reduce((sum, y) => sum + (y.cashflow_annual || 0), 0);
+    const comparisonCumulativeCF = comparisonYearly.reduce((sum, y) => sum + (y.cashflow_annual || 0), 0);
     const cfDiff = comparisonCumulativeCF - baselineCumulativeCF;
-    const cfDiffPercent = ((cfDiff / Math.abs(baselineCumulativeCF)) * 100).toFixed(1);
+    const cfDiffPercent = safePercent(cfDiff, Math.abs(baselineCumulativeCF));
 
     // 総投資額を計算
-    const baselineTotalInvestment = baselineYearly.reduce((sum, y) => sum + y.investment_total, 0);
-    const comparisonTotalInvestment = comparisonYearly.reduce((sum, y) => sum + y.investment_total, 0);
+    const baselineTotalInvestment = baselineYearly.reduce((sum, y) => sum + (y.investment_total || 0), 0);
+    const comparisonTotalInvestment = comparisonYearly.reduce((sum, y) => sum + (y.investment_total || 0), 0);
     const investmentDiff = comparisonTotalInvestment - baselineTotalInvestment;
-    const investmentDiffPercent = ((investmentDiff / baselineTotalInvestment) * 100).toFixed(1);
+    const investmentDiffPercent = safePercent(investmentDiff, baselineTotalInvestment);
 
     const html = `
         <table class="comparison-table">
@@ -1960,6 +1978,110 @@ function showToast(message) {
     toast.textContent = message;
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ==================== モンテカルロ ====================
+
+const MC_COLORS = {
+    plan: {
+        band95: 'rgba(59,130,246,0.10)',
+        band75: 'rgba(59,130,246,0.22)',
+        median: '#2563eb',
+        mean:   '#93c5fd',
+    },
+    actual: {
+        band95: 'rgba(16,185,129,0.10)',
+        band75: 'rgba(16,185,129,0.22)',
+        median: '#059669',
+        mean:   '#6ee7b7',
+    },
+};
+
+async function runMonteCarlo(baseType) {
+    const n   = parseInt(document.getElementById('mcNSimulations').value);
+    const std = parseFloat(document.getElementById('mcReturnStd').value);
+
+    // ローディング表示
+    document.getElementById('mcLoadingBar').style.display = 'flex';
+    document.getElementById('mcLoadingText').textContent  =
+        `${baseType === 'actual' ? '実績ベース' : 'プラン通り'} シミュレーション実行中 (${n}回)...`;
+    document.getElementById('mcRunPlanBtn').disabled   = true;
+    document.getElementById('mcRunActualBtn').disabled = true;
+
+    try {
+        const result = await eel.run_monte_carlo_simulation(n, std, baseType)();
+
+        if (!result.success) {
+            alert('モンテカルロシミュレーション失敗: ' + result.error);
+            return;
+        }
+
+        mcResults[baseType] = result.data;
+        renderMonteCarloView();
+    } catch (err) {
+        console.error('モンテカルロエラー:', err);
+        alert('モンテカルロシミュレーション中にエラーが発生しました');
+    } finally {
+        document.getElementById('mcLoadingBar').style.display  = 'none';
+        document.getElementById('mcRunPlanBtn').disabled   = false;
+        document.getElementById('mcRunActualBtn').disabled = false;
+    }
+}
+
+function clearMonteCarloResults() {
+    mcResults = { plan: null, actual: null };
+    renderMonteCarloView();
+}
+
+function renderMonteCarloView() {
+    const hasAny = mcResults.plan || mcResults.actual;
+    document.getElementById('mcEmptyState').style.display    = hasAny ? 'none'  : 'block';
+    document.getElementById('mcResultSection').style.display = hasAny ? 'block' : 'none';
+    if (!hasAny) return;
+
+    // 描画用データ配列を構築
+    const chartData = [];
+    if (mcResults.plan) {
+        chartData.push({ label: 'プラン通り', color: MC_COLORS.plan,   data: mcResults.plan });
+    }
+    if (mcResults.actual) {
+        chartData.push({ label: '実績ベース', color: MC_COLORS.actual, data: mcResults.actual });
+    }
+
+    // サマリーカード
+    renderMCSummaryCards(chartData);
+
+    // グラフ
+    renderMonteCarloChart(chartData, 'mcChart');
+    renderMCDistributionChart(chartData, 'mcDistributionChart');
+}
+
+function renderMCSummaryCards(chartData) {
+    const grid = document.getElementById('mcSummaryCards');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    chartData.forEach(({ label, color, data }) => {
+        const badgeClass = label.includes('実績') ? 'mc-badge-actual' : 'mc-badge-plan';
+        const items = [
+            { title: '最悪ケース (p5)',  value: data.final_p5 },
+            { title: '下位 (p25)',       value: data.final_p25 },
+            { title: '中央値 (p50)',     value: data.final_p50 },
+            { title: '上位 (p75)',       value: data.final_p75 },
+            { title: '最良ケース (p95)', value: data.final_p95 },
+            { title: '平均',             value: data.final_mean },
+        ];
+        items.forEach(({ title, value }) => {
+            const card = document.createElement('div');
+            card.className = 'mc-summary-card';
+            card.innerHTML = `
+                <div class="mc-card-badge ${badgeClass}">${escapeHTML(label)}</div>
+                <div class="mc-card-label">${escapeHTML(title)}</div>
+                <div class="mc-card-value">${formatCurrency(value)}</div>
+            `;
+            grid.appendChild(card);
+        });
+    });
 }
 
 console.log('app.js ロード完了');
