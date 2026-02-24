@@ -109,25 +109,25 @@ function renderAssetsBreakdownChart() {
         },
         {
             x: ages,
-            y: yearlyData.map(d => d.nisa_growth),
-            name: 'NISA成長投資枠',
+            y: yearlyData.map(d => d.nisa_fang),
+            name: 'NISA FANG（成長枠）',
             type: 'scatter',
             mode: 'lines',
             stackgroup: 'one',
             fillcolor: '#3b82f6',
             line: { width: 0 },
-            hovertemplate: '%{x}歳 - NISA成長: %{y:,.0f}円<extra></extra>'
+            hovertemplate: '%{x}歳 - FANG: %{y:,.0f}円<extra></extra>'
         },
         {
             x: ages,
-            y: yearlyData.map(d => d.nisa_tsumitate),
-            name: 'NISAつみたて枠',
+            y: yearlyData.map(d => d.nisa_orkan),
+            name: 'NISAオルカン（積立枠）',
             type: 'scatter',
             mode: 'lines',
             stackgroup: 'one',
             fillcolor: '#1e3a8a',
             line: { width: 0 },
-            hovertemplate: '%{x}歳 - NISAつみたて: %{y:,.0f}円<extra></extra>'
+            hovertemplate: '%{x}歳 - オルカン: %{y:,.0f}円<extra></extra>'
         }
     ];
 
@@ -410,8 +410,8 @@ function translateKey(key) {
         'clothing_medical': '被服・医療',
         'basic_living': '基本生活費',
         'university_living_support': '大学生活費',
-        'nisa_tsumitate': 'NISAつみたて',
-        'nisa_growth': 'NISA成長投資',
+        'nisa_orkan' : 'NISAオルカン',
+        'nisa_fang' : 'NISA FANG',
         'company_stock': '自社株',
         'education_fund': '教育資金',
         'marriage_fund': '結婚資金',
@@ -721,13 +721,13 @@ function renderAssetsPieCharts(assetsData) {
     const startValues = [];
     const colors = ['#1e3a8a', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
-    if (assetsStart.nisa_tsumitate > 0) {
-        startLabels.push('NISAつみたて');
-        startValues.push(assetsStart.nisa_tsumitate);
+    if ((assetsStart.nisa_orkan || assetsStart.nisa_tsumitate || 0) > 0) {
+        startLabels.push('NISAオルカン');
+        startValues.push(assetsStart.nisa_orkan || assetsStart.nisa_tsumitate || 0);
     }
-    if (assetsStart.nisa_growth > 0) {
-        startLabels.push('NISA成長');
-        startValues.push(assetsStart.nisa_growth);
+    if ((assetsStart.nisa_fang || assetsStart.nisa_growth || 0) > 0) {
+        startLabels.push('NISA FANG');
+        startValues.push(assetsStart.nisa_fang || assetsStart.nisa_growth || 0);
     }
     if (assetsStart.company_stock > 0) {
         startLabels.push('自社株');
@@ -780,13 +780,13 @@ function renderAssetsPieCharts(assetsData) {
     const endLabels = [];
     const endValues = [];
 
-    if (assetsEnd.nisa_tsumitate > 0) {
-        endLabels.push('NISAつみたて');
-        endValues.push(assetsEnd.nisa_tsumitate);
+    if (assetsEnd.nisa_orkan > 0) {
+        endLabels.push('NISAオルカン');
+        endValues.push(assetsEnd.nisa_orkan);
     }
-    if (assetsEnd.nisa_growth > 0) {
-        endLabels.push('NISA成長');
-        endValues.push(assetsEnd.nisa_growth);
+    if (assetsEnd.nisa_fang > 0) {
+        endLabels.push('NISA FANG');
+        endValues.push(assetsEnd.nisa_fang);
     }
     if (assetsEnd.company_stock > 0) {
         endLabels.push('自社株');

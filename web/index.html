@@ -673,12 +673,36 @@
                         </table>
                         <button id="addSpouseRangeBtn" class="btn btn-secondary btn-sm" style="margin-bottom:1rem;">＋ 行を追加</button>
 
-                        <p class="settings-section-title">投資設定</p>
+                        <p class="settings-section-title">NISA設定</p>
+                        <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:0.8rem;">
+                            積立投資枠（オルカン）と成長投資枠（FANG）の月額・ボーナス投資額と期待リターンを設定します。<br>
+                            生涯非課税上限：積立枠 1,200万円・成長枠 600万円・合計 1,800万円
+                        </p>
                         <div class="settings-grid">
                             <div class="settings-item">
-                                <label>NISA期待リターン (%)</label>
-                                <input type="number" id="cfgNisaReturn" min="0" max="20" step="0.1" class="settings-input">
+                                <label>オルカン 月額積立（円）</label>
+                                <input type="number" id="cfgOrkanMonthly" min="0" max="500000" step="10000" class="settings-input">
                             </div>
+                            <div class="settings-item">
+                                <label>オルカン 期待リターン (%)</label>
+                                <input type="number" id="cfgOrkanReturn" min="0" max="20" step="0.1" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>FANG 月額積立（円）</label>
+                                <input type="number" id="cfgFangMonthly" min="0" max="500000" step="10000" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>FANG ボーナス時積立（円/回）</label>
+                                <input type="number" id="cfgFangBonus" min="0" max="3000000" step="50000" class="settings-input">
+                            </div>
+                            <div class="settings-item">
+                                <label>FANG 期待リターン (%)</label>
+                                <input type="number" id="cfgFangReturn" min="0" max="20" step="0.1" class="settings-input">
+                            </div>
+                        </div>
+
+                        <p class="settings-section-title">その他投資・インフレ設定</p>
+                        <div class="settings-grid">
                             <div class="settings-item">
                                 <label>特定口座期待リターン (%)</label>
                                 <input type="number" id="cfgTaxableReturn" min="0" max="20" step="0.1" class="settings-input">

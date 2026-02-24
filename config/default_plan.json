@@ -78,7 +78,6 @@
         "entertainment": 30000
       },
       "monthly_investment": {
-        "nisa_tsumitate": 100000,
         "company_stock": 21000,
         "marriage_fund": 80000,
         "emergency_fund": 20000
@@ -101,12 +100,10 @@
         "spouse_allowance": 20000
       },
       "monthly_investment": {
-        "nisa_tsumitate": 100000,
         "company_stock": 21000,
         "child_preparation_fund": 100000
       },
       "bonus_allocation": {
-        "nisa_growth": 400000,
         "education_fund": 600000,
         "travel": 400000,
         "home_appliances": 300000,
@@ -127,12 +124,10 @@
         "clothing_medical": 20000
       },
       "monthly_investment": {
-        "nisa_tsumitate": 100000,
         "company_stock": 21000,
         "education_fund": 60000
       },
       "bonus_allocation": {
-        "nisa_growth": 400000,
         "education_fund": 600000,
         "living_supplement": 800000,
         "travel": 400000,
@@ -157,7 +152,6 @@
         "company_stock": 21000
       },
       "bonus_allocation": {
-        "nisa_growth": 300000,
         "education_fund": 800000,
         "living_supplement": 1000000,
         "reserve": 600000
@@ -248,19 +242,12 @@
     "nisa": {
       "tsumitate_limit": 12000000,
       "growth_limit": 6000000,
-      "tsumitate_allocation": {
-        "emaxis_slim_world": 0.50,
-        "emaxis_slim_sp500": 0.30,
-        "emaxis_slim_developed": 0.10,
-        "emaxis_slim_emerging": 0.10
-      },
-      "growth_allocation": {
-        "domestic_dividend_etf": 0.25,
-        "us_dividend_etf": 0.25,
-        "japan_dividend_stocks": 0.25,
-        "us_dividend_growth": 0.20,
-        "company_stock": 0.05
-      },
+      "total_lifetime_limit": 18000000,
+      "orkan_monthly": 100000,
+      "fang_monthly": 0,
+      "fang_bonus_per_payment": 200000,
+      "orkan_expected_return": 0.05,
+      "fang_expected_return": 0.07,
       "expected_return": 0.05
     },
     "company_stock": {

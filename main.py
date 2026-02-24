@@ -877,8 +877,8 @@ def get_goal_achievement():
             + calculator.investment_settings["nisa"].get("growth_limit", 6000000)
         )
         nisa_balance_current = (
-            current_year_data.get("nisa_tsumitate", 0)
-            + current_year_data.get("nisa_growth", 0)
+            current_year_data.get("nisa_orkan", current_year_data.get("nisa_tsumitate", 0))
+            + current_year_data.get("nisa_fang", current_year_data.get("nisa_growth", 0))
         )
 
         # 退職準備進捗（現計画資産 / 最終目標）

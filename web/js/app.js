@@ -542,28 +542,128 @@ function renderIrregularExpenses(irregularExpenses) {
 }
 
 // ========== 月次詳細テーブル描画 ==========
+const INCOME_LABELS = {
+    salary_net: '月給（手取り）',
+    bonus_net: 'ボーナス（手取り）',
+    spouse_income: '配偶者収入',
+    pension: '年金',
+    child_allowance: '児童手当',
+    housing_allowance: '住宅手当',
+};
+const EXPENSE_LABELS = {
+    housing_rent: '家賃',
+    housing_mortgage: '住宅ローン',
+    housing_utilities: '光熱費',
+    food: '食費',
+    communication: '通信費',
+    transportation: '交通費',
+    daily_goods: '日用品',
+    daily_goods_children: '日用品（子育て）',
+    insurance: '保険',
+    entertainment: '娯楽・交際費',
+    childcare_lessons: '習い事・保育',
+    education_cram_school: '教育・塾',
+    pet: 'ペット費用',
+    clothing_medical: '衣服・医療',
+    leisure_travel: '旅行・レジャー',
+    basic_living: '基本生活費',
+    spouse_allowance: '配偶者小遣い',
+};
+const INVEST_LABELS = {
+    nisa_orkan: 'NISAオルカン（積立）',
+    nisa_fang: 'NISA FANG（成長）',
+    company_stock: '持ち株',
+    education_fund: '教育資金',
+    marriage_fund: '結婚資金',
+    child_preparation_fund: '子育て準備金',
+    high_dividend_stocks: '高配当株',
+    emergency_fund: '緊急予備費',
+    living_supplement: '生活費補填',
+    travel: '旅行積立',
+    travel_leisure: '旅行・レジャー積立',
+    home_appliances: '家電',
+    reserve: 'その他積立',
+};
+
+function buildDetailRows(month) {
+    // 収入明細
+    const incomeItems = Object.entries(month.income)
+        .filter(([k, v]) => k !== 'total' && v > 0)
+        .map(([k, v]) => `<span class="detail-item"><span class="detail-label">${INCOME_LABELS[k] || k}</span><span class="detail-value">${formatCurrency(v)}</span></span>`)
+        .join('');
+
+    // 支出明細
+    const expenseItems = Object.entries(month.expenses)
+        .filter(([k, v]) => k !== 'total' && v > 0)
+        .map(([k, v]) => `<span class="detail-item"><span class="detail-label">${EXPENSE_LABELS[k] || k}</span><span class="detail-value text-red">-${formatCurrency(v)}</span></span>`)
+        .join('');
+
+    // 投資明細
+    const investItems = Object.entries(month.investment)
+        .filter(([k, v]) => k !== 'total' && v > 0)
+        .map(([k, v]) => `<span class="detail-item"><span class="detail-label">${INVEST_LABELS[k] || k}</span><span class="detail-value text-blue">-${formatCurrency(v)}</span></span>`)
+        .join('');
+
+    return `
+        <tr class="month-detail-row" style="display:none;">
+            <td colspan="6">
+                <div class="month-detail-grid">
+                    <div class="month-detail-section">
+                        <div class="month-detail-section-title">収入内訳</div>
+                        ${incomeItems || '<span class="detail-item"><span class="detail-label text-secondary">なし</span></span>'}
+                    </div>
+                    <div class="month-detail-section">
+                        <div class="month-detail-section-title">支出内訳</div>
+                        ${expenseItems || '<span class="detail-item"><span class="detail-label text-secondary">なし</span></span>'}
+                    </div>
+                    <div class="month-detail-section">
+                        <div class="month-detail-section-title">投資内訳</div>
+                        ${investItems || '<span class="detail-item"><span class="detail-label text-secondary">なし</span></span>'}
+                    </div>
+                </div>
+            </td>
+        </tr>`;
+}
+
 function renderMonthlyTable(monthlyData) {
     const container = document.getElementById('monthlyDetailTable');
     if (!container) return;
 
     let html = '<table><thead><tr>';
-    html += '<th>月</th><th>収入</th><th>支出</th><th>投資</th><th>収支</th><th>現金残高</th>';
+    html += '<th></th><th>月</th><th>収入</th><th>支出</th><th>投資</th><th>収支</th><th>現金残高</th>';
     html += '</tr></thead><tbody>';
 
     monthlyData.forEach(month => {
         const cashflowClass = month.cashflow.monthly >= 0 ? 'text-green' : 'text-red';
-        html += '<tr>';
-        html += `<td>${month.month}月</td>`;
+        const isBonusMonth = month.income.bonus_net > 0;
+        const bonusBadge = isBonusMonth ? '<span class="bonus-badge">B</span>' : '';
+        html += `<tr class="month-summary-row" data-month="${month.month}" style="cursor:pointer;">`;
+        html += `<td class="expand-arrow">▶</td>`;
+        html += `<td>${month.month}月${bonusBadge}</td>`;
         html += `<td>${formatCurrency(month.income.total)}</td>`;
         html += `<td>${formatCurrency(month.expenses.total)}</td>`;
         html += `<td>${formatCurrency(month.investment.total)}</td>`;
         html += `<td class="${cashflowClass}">${formatCurrency(month.cashflow.monthly)}</td>`;
         html += `<td>${formatCurrency(month.assets.cash_balance)}</td>`;
         html += '</tr>';
+        html += buildDetailRows(month);
     });
 
     html += '</tbody></table>';
     container.innerHTML = html;
+
+    // クリックで詳細行を展開/折りたたむ
+    container.querySelectorAll('.month-summary-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const detailRow = row.nextElementSibling;
+            const arrow = row.querySelector('.expand-arrow');
+            if (!detailRow) return;
+            const isOpen = detailRow.style.display !== 'none';
+            detailRow.style.display = isOpen ? 'none' : '';
+            arrow.textContent = isOpen ? '▶' : '▼';
+            row.classList.toggle('row-expanded', !isOpen);
+        });
+    });
 }
 
 // ========== すべてのグラフを描画 ==========
@@ -1090,9 +1190,15 @@ async function loadSettingsEditor() {
         // 配偶者収入テーブル
         renderSpouseRangeTable(data.spouse_income);
 
-        // 投資設定
-        document.getElementById('cfgNisaReturn').value =
-            (data.investment_settings.nisa.expected_return * 100).toFixed(1);
+        // NISA設定
+        const nisa = data.investment_settings.nisa;
+        document.getElementById('cfgOrkanMonthly').value = nisa.orkan_monthly ?? 100000;
+        document.getElementById('cfgOrkanReturn').value  = ((nisa.orkan_expected_return ?? 0.05) * 100).toFixed(1);
+        document.getElementById('cfgFangMonthly').value  = nisa.fang_monthly ?? 0;
+        document.getElementById('cfgFangBonus').value    = nisa.fang_bonus_per_payment ?? 200000;
+        document.getElementById('cfgFangReturn').value   = ((nisa.fang_expected_return ?? 0.07) * 100).toFixed(1);
+
+        // その他投資設定
         document.getElementById('cfgTaxableReturn').value =
             (data.investment_settings.taxable_account.expected_return * 100).toFixed(1);
         document.getElementById('cfgEducationReturn').value =
@@ -1180,7 +1286,11 @@ async function saveSettingsFromEditor() {
             return;
         }
 
-        const nisaReturn        = parseFloat(document.getElementById('cfgNisaReturn').value);
+        const orkanMonthly      = parseInt(document.getElementById('cfgOrkanMonthly').value) || 0;
+        const orkanReturn       = parseFloat(document.getElementById('cfgOrkanReturn').value);
+        const fangMonthly       = parseInt(document.getElementById('cfgFangMonthly').value) || 0;
+        const fangBonus         = parseInt(document.getElementById('cfgFangBonus').value) || 0;
+        const fangReturn        = parseFloat(document.getElementById('cfgFangReturn').value);
         const taxableReturn     = parseFloat(document.getElementById('cfgTaxableReturn').value);
         const educationReturn   = parseFloat(document.getElementById('cfgEducationReturn').value);
         const inflationLiving   = parseFloat(document.getElementById('cfgInflationLiving').value);
@@ -1197,7 +1307,13 @@ async function saveSettingsFromEditor() {
         // 配偶者収入（テーブルから収集）
         planData.spouse_income = collectSpouseRangeData();
 
-        planData.investment_settings.nisa.expected_return = nisaReturn / 100;
+        // NISA設定
+        planData.investment_settings.nisa.orkan_monthly          = orkanMonthly;
+        planData.investment_settings.nisa.orkan_expected_return   = orkanReturn / 100;
+        planData.investment_settings.nisa.fang_monthly            = fangMonthly;
+        planData.investment_settings.nisa.fang_bonus_per_payment  = fangBonus;
+        planData.investment_settings.nisa.fang_expected_return    = fangReturn / 100;
+
         planData.investment_settings.taxable_account.expected_return = taxableReturn / 100;
         planData.investment_settings.education_fund.expected_return  = educationReturn / 100;
         planData.inflation_settings.living_expenses_rate  = inflationLiving / 100;
