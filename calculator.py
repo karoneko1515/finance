@@ -23,6 +23,7 @@ class LifePlanCalculator:
         self.life_events = self.loader.get_life_events()
         self.income_progression = self.loader.get_income_progression()
         self.investment_settings = self.loader.get_investment_settings()
+        self.investment_plan = self.loader.get_investment_plan()
         self.tax_rates = self.loader.get_tax_rates()
         self.inflation_settings = self.loader.get_inflation_settings()
 
@@ -319,7 +320,7 @@ class LifePlanCalculator:
         adjusted = base_amount * ((1 + rate) ** years)
         return round(adjusted)
 
-    def calculate_monthly_data(self, age, month, assets_previous_month):
+    def calculate_monthly_data(self, age, month, assets_previous_month, nisa_cumulative=0):
         """
         月次データを計算
 
@@ -327,6 +328,7 @@ class LifePlanCalculator:
             age: 年齢
             month: 月（1-12）
             assets_previous_month: 前月末の資産状況
+            nisa_cumulative: NISA累計拠出額（枠判定用）
 
         Returns:
             dict: 月次データ
@@ -383,29 +385,54 @@ class LifePlanCalculator:
 
         total_monthly_expenses = sum(monthly_expenses.values()) + rent + mortgage + utilities
 
-        # ── 投資計算 ──────────────────────────────────────────────────
-        monthly_investment = {}
-        if phase:
-            for inv_key, inv_value in phase.get("monthly_investment", {}).items():
-                monthly_investment[inv_key] = inv_value
+        # ── 投資計算（investment_planから決定） ──────────────────────
+        inv_plan = self.investment_plan
+        nisa_limit = inv_plan.get("nisa_lifetime_limit", 18000000)
+        plan_key = "pre_nisa_full" if nisa_cumulative < nisa_limit else "post_nisa_full"
+        active_plan = inv_plan.get(plan_key, {})
 
-        total_monthly_investment = sum(monthly_investment.values())
-
-        # ボーナス配分（ボーナス月のみ、年2回なので半分ずつ）
+        monthly_investment = dict(active_plan.get("monthly", {}))
         bonus_allocation = {}
-        if is_bonus_month and phase:
-            for bonus_key, bonus_value in phase.get("bonus_allocation", {}).items():
-                bonus_allocation[bonus_key] = bonus_value / 2
+        if is_bonus_month:
+            for k, v in active_plan.get("bonus_per_payment", {}).items():
+                bonus_allocation[k] = v
 
-        total_bonus_allocation = sum(bonus_allocation.values())
+        # NISA枠が上限に近い場合はNISA投資を残枠に収める
+        if plan_key == "pre_nisa_full":
+            remaining_nisa = max(0, nisa_limit - nisa_cumulative)
+            nisa_orcan_planned = monthly_investment.get("nisa_orcan", 0) + bonus_allocation.get("nisa_orcan", 0)
+            nisa_fang_planned  = monthly_investment.get("nisa_fang",  0) + bonus_allocation.get("nisa_fang",  0)
+            total_nisa_planned = nisa_orcan_planned + nisa_fang_planned
+            if total_nisa_planned > remaining_nisa and total_nisa_planned > 0:
+                cap_ratio = remaining_nisa / total_nisa_planned
+                for d in [monthly_investment, bonus_allocation]:
+                    for k in ["nisa_orcan", "nisa_fang"]:
+                        if k in d:
+                            d[k] = round(d[k] * cap_ratio)
 
-        # 【修正】月次投資とボーナス配分を加算合成（キー衝突時は合算）
+        # 加算合成（月次+ボーナス）
         combined_investment = dict(monthly_investment)
         for k, v in bonus_allocation.items():
             combined_investment[k] = combined_investment.get(k, 0) + v
 
-        # 月間収支（投資・貯蓄を差し引いた残余キャッシュ）
-        monthly_cashflow = total_income - total_monthly_expenses - total_monthly_investment - total_bonus_allocation
+        # ── キャッシュフロアフロア ────────────────────────────────────
+        # 投資は「収入 - 生活費」の範囲内に収める。超える場合は比例縮小
+        available = total_income - total_monthly_expenses
+        total_investment_requested = sum(combined_investment.values())
+
+        if total_investment_requested <= 0 or available <= 0:
+            if available <= 0:
+                combined_investment = {k: 0 for k in combined_investment}
+            total_actual_investment = 0
+            monthly_cashflow = available
+        elif total_investment_requested > available:
+            ratio = available / total_investment_requested
+            combined_investment = {k: round(v * ratio) for k, v in combined_investment.items()}
+            total_actual_investment = sum(combined_investment.values())
+            monthly_cashflow = available - total_actual_investment  # ≒0
+        else:
+            total_actual_investment = total_investment_requested
+            monthly_cashflow = available - total_actual_investment
 
         return {
             "age": age,
@@ -429,14 +456,14 @@ class LifePlanCalculator:
             },
             "investment": {
                 **combined_investment,
-                "total": total_monthly_investment + total_bonus_allocation
+                "total": total_actual_investment
             },
             "cashflow": {
                 "monthly": monthly_cashflow,
             },
             "assets": {
-                "nisa_balance": assets_previous_month.get("nisa_tsumitate_balance", 0)
-                                + assets_previous_month.get("nisa_growth_balance", 0),
+                "nisa_balance": assets_previous_month.get("nisa_orcan_balance", 0)
+                                + assets_previous_month.get("nisa_fang_balance", 0),
                 "company_stock_balance": assets_previous_month.get("company_stock_balance", 0),
                 "cash_balance": assets_previous_month.get("cash_balance", 0),
                 "total": assets_previous_month.get("total", 0)
@@ -458,8 +485,8 @@ class LifePlanCalculator:
 
         # 初期資産
         assets = {
-            "nisa_tsumitate_balance": 0,
-            "nisa_growth_balance": 0,
+            "nisa_orcan_balance": 0,       # オルカンNISA残高
+            "nisa_fang_balance": 0,         # FANG+NISA残高
             "company_stock_balance": 0,
             "company_stock_shares": 0,
             "education_fund_balance": 0,
@@ -469,8 +496,8 @@ class LifePlanCalculator:
             "total": 0
         }
 
-        nisa_tsumitate_total_contribution = 0
-        nisa_growth_total_contribution = 0
+        nisa_cumulative = 0   # NISA累計拠出額（枠管理用）
+        nisa_limit = self.investment_plan.get("nisa_lifetime_limit", 18000000)
 
         # 自社株情報
         company_stock_settings = self.investment_settings["company_stock"]
@@ -491,7 +518,7 @@ class LifePlanCalculator:
 
             # ── 月次ループ ────────────────────────────────────────────
             for month in range(1, 13):
-                month_data = self.calculate_monthly_data(age, month, assets)
+                month_data = self.calculate_monthly_data(age, month, assets, nisa_cumulative)
                 monthly_data.append(month_data)
 
                 yearly_income += month_data["income"]["total"]
@@ -499,32 +526,23 @@ class LifePlanCalculator:
                 yearly_investment += month_data["investment"]["total"]
                 yearly_cashflow += month_data["cashflow"]["monthly"]
 
-                # NISA積立
-                nisa_contribution = month_data["investment"].get("nisa_tsumitate", 0)
-                if nisa_contribution > 0:
-                    if nisa_tsumitate_total_contribution < self.investment_settings["nisa"]["tsumitate_limit"]:
-                        contribution = min(nisa_contribution,
-                                         self.investment_settings["nisa"]["tsumitate_limit"] - nisa_tsumitate_total_contribution)
-                        nisa_tsumitate_total_contribution += contribution
-                        monthly_return = self.investment_settings["nisa"]["expected_return"] / 12
-                        assets["nisa_tsumitate_balance"] = (assets["nisa_tsumitate_balance"] + contribution) * (1 + monthly_return)
-                    else:
-                        # つみたてNISA満額後は特定口座へ
-                        monthly_return = self.investment_settings["taxable_account"]["expected_return"] / 12
-                        assets["taxable_account_balance"] = (assets["taxable_account_balance"] + nisa_contribution) * (1 + monthly_return)
+                nisa_monthly_return = self.investment_settings["nisa"]["expected_return"] / 12
 
-                # NISA成長投資枠（ボーナス月含む）
-                nisa_growth_contribution = month_data["investment"].get("nisa_growth", 0)
-                if nisa_growth_contribution > 0:
-                    if nisa_growth_total_contribution < self.investment_settings["nisa"]["growth_limit"]:
-                        contribution = min(nisa_growth_contribution,
-                                         self.investment_settings["nisa"]["growth_limit"] - nisa_growth_total_contribution)
-                        nisa_growth_total_contribution += contribution
-                        monthly_return = self.investment_settings["nisa"]["expected_return"] / 12
-                        assets["nisa_growth_balance"] = (assets["nisa_growth_balance"] + contribution) * (1 + monthly_return)
-                    else:
-                        monthly_return = self.investment_settings["taxable_account"]["expected_return"] / 12
-                        assets["taxable_account_balance"] = (assets["taxable_account_balance"] + nisa_growth_contribution) * (1 + monthly_return)
+                # NISA(オルカン)積立
+                orcan_contribution = month_data["investment"].get("nisa_orcan", 0)
+                if orcan_contribution > 0:
+                    actual = min(orcan_contribution, max(0, nisa_limit - nisa_cumulative))
+                    if actual > 0:
+                        nisa_cumulative += actual
+                        assets["nisa_orcan_balance"] = (assets["nisa_orcan_balance"] + actual) * (1 + nisa_monthly_return)
+
+                # NISA(FANG+)積立
+                fang_contribution = month_data["investment"].get("nisa_fang", 0)
+                if fang_contribution > 0:
+                    actual = min(fang_contribution, max(0, nisa_limit - nisa_cumulative))
+                    if actual > 0:
+                        nisa_cumulative += actual
+                        assets["nisa_fang_balance"] = (assets["nisa_fang_balance"] + actual) * (1 + nisa_monthly_return)
 
                 # 自社株購入（奨励金込み）
                 company_stock_contribution = month_data["investment"].get("company_stock", 0)
@@ -533,33 +551,12 @@ class LifePlanCalculator:
                     shares_purchased = actual_purchase / stock_price
                     assets["company_stock_shares"] += shares_purchased
 
-                # 教育資金積立
-                education_contribution = month_data["investment"].get("education_fund", 0)
-                if education_contribution > 0:
-                    monthly_return = self.investment_settings["education_fund"]["expected_return"] / 12
-                    assets["education_fund_balance"] = (assets["education_fund_balance"] + education_contribution) * (1 + monthly_return)
-
-                # 結婚資金積立
-                marriage_contribution = month_data["investment"].get("marriage_fund", 0)
-                if marriage_contribution > 0:
-                    monthly_return = self.investment_settings["education_fund"]["expected_return"] / 12
-                    assets["marriage_fund_balance"] = (assets["marriage_fund_balance"] + marriage_contribution) * (1 + monthly_return)
-
-                # 子供準備資金（現金として積立）
-                child_prep_contribution = month_data["investment"].get("child_preparation_fund", 0)
-                if child_prep_contribution > 0:
-                    assets["cash_balance"] += child_prep_contribution
-
-                # 緊急予備費（現金として積立）
-                emergency_contribution = month_data["investment"].get("emergency_fund", 0)
-                if emergency_contribution > 0:
-                    assets["cash_balance"] += emergency_contribution
-
-                # 高配当株投資（特定口座）
-                high_dividend_contribution = month_data["investment"].get("high_dividend_stocks", 0)
-                if high_dividend_contribution > 0:
-                    monthly_return = self.investment_settings["taxable_account"]["expected_return"] / 12
-                    assets["taxable_account_balance"] = (assets["taxable_account_balance"] + high_dividend_contribution) * (1 + monthly_return)
+                # 既存キー（互換性維持）
+                for edu_key in ["education_fund"]:
+                    edu_contrib = month_data["investment"].get(edu_key, 0)
+                    if edu_contrib > 0:
+                        monthly_return = self.investment_settings["education_fund"]["expected_return"] / 12
+                        assets["education_fund_balance"] = (assets["education_fund_balance"] + edu_contrib) * (1 + monthly_return)
 
                 # 現金残高にキャッシュフローを反映
                 assets["cash_balance"] += month_data["cashflow"]["monthly"]
@@ -688,13 +685,21 @@ class LifePlanCalculator:
                         remaining -= edu_used
                         payment_sources.append({"source": "教育資金", "amount": edu_used})
 
-                # 3) NISA成長投資枠から補填
+                # 3) NISA(オルカン)から補填
                 if remaining > 0:
-                    nisa_used = min(assets["nisa_growth_balance"], remaining)
+                    nisa_used = min(assets["nisa_orcan_balance"], remaining)
                     if nisa_used > 0:
-                        assets["nisa_growth_balance"] -= nisa_used
+                        assets["nisa_orcan_balance"] -= nisa_used
                         remaining -= nisa_used
-                        payment_sources.append({"source": "NISA成長", "amount": nisa_used})
+                        payment_sources.append({"source": "NISA(オルカン)", "amount": nisa_used})
+
+                # 4) NISA(FANG+)から補填
+                if remaining > 0:
+                    nisa_used = min(assets["nisa_fang_balance"], remaining)
+                    if nisa_used > 0:
+                        assets["nisa_fang_balance"] -= nisa_used
+                        remaining -= nisa_used
+                        payment_sources.append({"source": "NISA(FANG+)", "amount": nisa_used})
 
                 irregular_expenses.append({
                     "type": "住宅購入（頭金）",
@@ -720,8 +725,8 @@ class LifePlanCalculator:
                         })
 
             # 総資産
-            assets["total"] = (assets["nisa_tsumitate_balance"] +
-                             assets["nisa_growth_balance"] +
+            assets["total"] = (assets["nisa_orcan_balance"] +
+                             assets["nisa_fang_balance"] +
                              assets["company_stock_balance"] +
                              assets["education_fund_balance"] +
                              assets["marriage_fund_balance"] +
@@ -737,8 +742,9 @@ class LifePlanCalculator:
                 "cashflow_annual": yearly_cashflow,
                 "assets_start": year_start_assets["total"],
                 "assets_end": assets["total"],
-                "nisa_tsumitate": assets["nisa_tsumitate_balance"],
-                "nisa_growth": assets["nisa_growth_balance"],
+                "nisa_orcan": assets["nisa_orcan_balance"],
+                "nisa_fang": assets["nisa_fang_balance"],
+                "nisa_cumulative": nisa_cumulative,
                 "company_stock": assets["company_stock_balance"],
                 "education_fund": assets["education_fund_balance"],
                 "marriage_fund": assets["marriage_fund_balance"],
@@ -794,8 +800,8 @@ class LifePlanCalculator:
 
         # 年始の資産（前年末）
         assets_start = {
-            "nisa_tsumitate": prev_year_data["nisa_tsumitate"] if prev_year_data else 0,
-            "nisa_growth": prev_year_data["nisa_growth"] if prev_year_data else 0,
+            "nisa_orcan": prev_year_data["nisa_orcan"] if prev_year_data else 0,
+            "nisa_fang": prev_year_data["nisa_fang"] if prev_year_data else 0,
             "company_stock": prev_year_data["company_stock"] if prev_year_data else 0,
             "education_fund": prev_year_data["education_fund"] if prev_year_data else 0,
             "marriage_fund": prev_year_data["marriage_fund"] if prev_year_data else 0,
@@ -806,8 +812,8 @@ class LifePlanCalculator:
 
         # 年末の資産
         assets_end = {
-            "nisa_tsumitate": year_data["nisa_tsumitate"],
-            "nisa_growth": year_data["nisa_growth"],
+            "nisa_orcan": year_data["nisa_orcan"],
+            "nisa_fang": year_data["nisa_fang"],
             "company_stock": year_data["company_stock"],
             "education_fund": year_data["education_fund"],
             "marriage_fund": year_data["marriage_fund"],

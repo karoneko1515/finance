@@ -177,6 +177,63 @@ def update_plan_data(plan_json):
 
 
 @eel.expose
+def get_investment_plan():
+    """
+    投資プラン設定を取得
+
+    Returns:
+        dict: 投資プラン（NISA枠上限、NISA前後の月次/ボーナス配分）
+    """
+    try:
+        return {
+            "success": True,
+            "data": data_loader.get_investment_plan()
+        }
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def update_investment_plan(investment_plan):
+    """
+    投資プラン設定を更新して再シミュレーション
+
+    Args:
+        investment_plan: 投資プラン dict
+
+    Returns:
+        dict: 更新結果
+    """
+    try:
+        if isinstance(investment_plan, str):
+            investment_plan = json.loads(investment_plan)
+
+        # バリデーション
+        nisa_limit = investment_plan.get("nisa_lifetime_limit", 0)
+        if not isinstance(nisa_limit, (int, float)) or nisa_limit < 0:
+            return {"success": False, "error": "NISA枠上限が不正です"}
+
+        for phase_key in ["pre_nisa_full", "post_nisa_full"]:
+            phase = investment_plan.get(phase_key, {})
+            for section in ["monthly", "bonus_per_payment"]:
+                for k, v in phase.get(section, {}).items():
+                    if not isinstance(v, (int, float)) or v < 0:
+                        return {"success": False, "error": f"{phase_key}.{section}.{k} の値が不正です"}
+
+        plan_data = data_loader.get_all_data()
+        plan_data["investment_plan"] = investment_plan
+        data_loader.save_user_plan(plan_data)
+
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+        calculator.simulate_30_years()
+
+        return {"success": True, "message": "投資プランを更新しました"}
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
 def reset_plan_to_default():
     """
     プラン設定をデフォルトに戻す
@@ -878,13 +935,10 @@ def get_goal_achievement():
             emergency_current = current_year_data.get("cash", 0)
 
         # NISA積立進捗（計画累計）
-        nisa_limit = (
-            calculator.investment_settings["nisa"].get("tsumitate_limit", 12000000)
-            + calculator.investment_settings["nisa"].get("growth_limit", 6000000)
-        )
+        nisa_limit = calculator.investment_plan.get("nisa_lifetime_limit", 18000000)
         nisa_balance_current = (
-            current_year_data.get("nisa_tsumitate", 0)
-            + current_year_data.get("nisa_growth", 0)
+            current_year_data.get("nisa_orcan", 0)
+            + current_year_data.get("nisa_fang", 0)
         )
 
         # 退職準備進捗（現計画資産 / 最終目標）

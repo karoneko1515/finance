@@ -66,6 +66,28 @@
       "utilities": 15000
     }
   },
+  "investment_plan": {
+    "nisa_lifetime_limit": 18000000,
+    "pre_nisa_full": {
+      "monthly": {
+        "nisa_orcan": 40000,
+        "nisa_fang": 40000,
+        "company_stock": 20000
+      },
+      "bonus_per_payment": {
+        "nisa_orcan": 150000,
+        "nisa_fang": 150000
+      }
+    },
+    "post_nisa_full": {
+      "monthly": {
+        "company_stock": 70000
+      },
+      "bonus_per_payment": {
+        "company_stock": 150000
+      }
+    }
+  },
   "phase_definitions": {
     "phase1": {
       "ages": "25-27",
@@ -77,17 +99,6 @@
         "daily_goods": 10000,
         "insurance": 5000,
         "entertainment": 30000
-      },
-      "monthly_investment": {
-        "nisa_tsumitate": 100000,
-        "company_stock": 21000,
-        "marriage_fund": 80000,
-        "emergency_fund": 20000
-      },
-      "bonus_allocation": {
-        "marriage_fund": 600000,
-        "travel": 300000,
-        "reserve": 500000
       }
     },
     "phase2": {
@@ -100,18 +111,6 @@
         "daily_goods": 15000,
         "entertainment": 30000,
         "spouse_allowance": 20000
-      },
-      "monthly_investment": {
-        "nisa_tsumitate": 100000,
-        "company_stock": 21000,
-        "child_preparation_fund": 100000
-      },
-      "bonus_allocation": {
-        "nisa_growth": 400000,
-        "education_fund": 600000,
-        "travel": 400000,
-        "home_appliances": 300000,
-        "reserve": 600000
       }
     },
     "phase3": {
@@ -126,18 +125,6 @@
         "entertainment": 20000,
         "pet": 30000,
         "clothing_medical": 20000
-      },
-      "monthly_investment": {
-        "nisa_tsumitate": 100000,
-        "company_stock": 21000,
-        "education_fund": 60000
-      },
-      "bonus_allocation": {
-        "nisa_growth": 400000,
-        "education_fund": 600000,
-        "living_supplement": 800000,
-        "travel": 400000,
-        "reserve": 400000
       }
     },
     "phase4": {
@@ -152,16 +139,6 @@
         "entertainment": 20000,
         "pet": 30000,
         "clothing_medical": 20000
-      },
-      "monthly_investment": {
-        "education_fund": 100000,
-        "company_stock": 21000
-      },
-      "bonus_allocation": {
-        "nisa_growth": 300000,
-        "education_fund": 800000,
-        "living_supplement": 1000000,
-        "reserve": 600000
       }
     },
     "phase5": {
@@ -170,14 +147,6 @@
       "monthly_expenses": {
         "food": 80000,
         "basic_living": 350000
-      },
-      "monthly_investment": {
-        "company_stock": 30000,
-        "high_dividend_stocks": 100000
-      },
-      "bonus_allocation": {
-        "high_dividend_stocks": 600000,
-        "reserve": 500000
       }
     },
     "phase6": {
@@ -187,15 +156,6 @@
         "food": 80000,
         "basic_living": 300000,
         "leisure_travel": 50000
-      },
-      "monthly_investment": {
-        "company_stock": 30000,
-        "high_dividend_stocks": 150000
-      },
-      "bonus_allocation": {
-        "high_dividend_stocks": 1000000,
-        "travel_leisure": 500000,
-        "reserve": 1000000
       }
     },
     "phase7": {
@@ -205,9 +165,7 @@
         "food": 80000,
         "basic_living": 250000,
         "leisure_travel": 50000
-      },
-      "monthly_investment": {},
-      "bonus_allocation": {}
+      }
     }
   },
   "child_allowance": {

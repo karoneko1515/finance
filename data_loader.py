@@ -111,6 +111,10 @@ class DataLoader:
         """ペット費用を取得"""
         return self.plan_data.get("pet_costs", {})
 
+    def get_investment_plan(self):
+        """投資プラン（NISA枠管理・オルカン/FANG+/自社株配分）を取得"""
+        return self.plan_data.get("investment_plan", {})
+
     def get_investment_settings(self):
         """投資設定を取得"""
         return self.plan_data.get("investment_settings", {})
