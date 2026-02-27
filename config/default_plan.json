@@ -2,6 +2,7 @@
   "basic_info": {
     "start_age": 25,
     "end_age": 65,
+    "start_year": 2026,
     "birth_month": 4,
     "company": "三菱重工",
     "education": "院卒",

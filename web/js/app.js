@@ -326,10 +326,10 @@ function updateDashboard() {
         cashWarning.style.display = 'none';
     }
 
-    // 金額の色分け
-    document.getElementById('totalCashflow').classList.add(
-        summary.total_cashflow >= 0 ? 'text-green' : 'text-red'
-    );
+    // 金額の色分け（再計算時のクラス累積を防ぐためremove後にadd）
+    const cashflowEl = document.getElementById('totalCashflow');
+    cashflowEl.classList.remove('text-green', 'text-red');
+    cashflowEl.classList.add(summary.total_cashflow >= 0 ? 'text-green' : 'text-red');
 }
 
 // ========== 年齢別詳細ビューのクリア ==========
@@ -864,8 +864,8 @@ function renderComparisonTable(scenarioData) {
             <thead>
                 <tr>
                     <th>指標</th>
-                    <th>${baseline.scenario_name}</th>
-                    <th>${comparison.scenario_name}</th>
+                    <th>${escapeHTML(baseline.scenario_name)}</th>
+                    <th>${escapeHTML(comparison.scenario_name)}</th>
                     <th>差分</th>
                 </tr>
             </thead>

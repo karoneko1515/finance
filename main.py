@@ -210,6 +210,9 @@ def export_data_csv():
     try:
         import pandas as pd
 
+        if not calculator.yearly_data:
+            return {"success": False, "error": "先にシミュレーションを実行してください"}
+
         # 年次データをDataFrameに変換
         df_yearly = pd.DataFrame(calculator.yearly_data)
 
@@ -333,10 +336,10 @@ def calculate_scenario_comparison(scenarios):
             if "spouse_income" in scenario:
                 if scenario["spouse_income"] == "なし":
                     plan_data["spouse_income"]["28-47"] = 0
-                    plan_data["spouse_income"]["48-55"] = 0
+                    plan_data["spouse_income"]["48-64"] = 0
                 elif scenario["spouse_income"] == "増額":
                     plan_data["spouse_income"]["28-47"] = 120000
-                    plan_data["spouse_income"]["48-55"] = 150000
+                    plan_data["spouse_income"]["48-64"] = 150000
 
             if "salary_growth" in scenario:
                 if scenario["salary_growth"] == "+10%":
@@ -749,9 +752,15 @@ def update_phase_expenses(phase_name, monthly_expenses):
         plan_data = data_loader.get_all_data()
         if phase_name not in plan_data.get("phase_definitions", {}):
             return {"success": False, "error": f"フェーズ '{phase_name}' が見つかりません"}
-        plan_data["phase_definitions"][phase_name]["monthly_expenses"] = {
-            k: int(v) for k, v in monthly_expenses.items() if int(v) >= 0
-        }
+        validated_expenses = {}
+        for k, v in monthly_expenses.items():
+            try:
+                int_v = int(v)
+                if int_v >= 0:
+                    validated_expenses[k] = int_v
+            except (ValueError, TypeError):
+                continue
+        plan_data["phase_definitions"][phase_name]["monthly_expenses"] = validated_expenses
         data_loader.save_user_plan(plan_data)
         global calculator
         calculator = LifePlanCalculator(data_loader)
@@ -843,11 +852,8 @@ def get_goal_achievement():
         if latest:
             actual_age = latest["age"]
         else:
-            if records:
-                r0 = records[0]
-                sim_start_year = r0["year"] - (r0["age"] - start_age)
-            else:
-                sim_start_year = _date.today().year
+            # 実績なし: 設定ファイルの開始年または実行年から推定
+            sim_start_year = int(calculator.basic_info.get("start_year", _date.today().year))
             actual_age = min(end_age, start_age + (_date.today().year - sim_start_year))
 
         # 65歳時の計画最終資産
