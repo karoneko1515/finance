@@ -1610,6 +1610,72 @@ body.dark-mode .irregular-expense-item {
     transform: translateX(-50%) translateY(0);
 }
 
+/* ==================== 投資設定エディタ ==================== */
+
+.editor-inv-card {
+    margin-bottom: 1.5rem;
+}
+
+.editor-inv-card h3 {
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.inv-section-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.6rem;
+}
+
+.inv-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.inv-grid .settings-item {
+    min-width: 180px;
+    flex: 1;
+}
+
+.inv-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.inv-note {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    padding-bottom: 0.4rem;
+}
+
+.inv-summary {
+    margin-top: 0.8rem;
+    padding: 0.6rem 0.9rem;
+    background: var(--background-secondary);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+}
+
+.inv-summary strong {
+    color: var(--accent-color);
+}
+
+.inv-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.5rem 0 1.5rem;
+}
+
 /* ==================== モンテカルロ ==================== */
 
 .nav-tab-mc {

@@ -1535,7 +1535,8 @@ async function loadEditorView() {
     await Promise.all([
         loadSalaryEditor(),
         loadEventsEditor(),
-        loadExpensesEditor()
+        loadExpensesEditor(),
+        loadInvestmentEditor()
     ]);
 }
 
@@ -2152,6 +2153,144 @@ function renderMCSummaryCards(chartData) {
             grid.appendChild(card);
         });
     });
+}
+
+// ==================== 投資設定エディタ ====================
+
+/**
+ * 投資プランエディタを読み込む
+ */
+async function loadInvestmentEditor() {
+    try {
+        const result = await eel.get_investment_plan()();
+        if (!result.success) return;
+        const plan = result.data;
+
+        // NISA枠上限
+        const limit = plan.nisa_lifetime_limit || 18000000;
+        setInvInput('invNisaLimit', limit);
+
+        // NISA前
+        const pre = plan.pre_nisa_full || {};
+        const preMonthly = pre.monthly || {};
+        const preBonus   = pre.bonus_per_payment || {};
+        setInvInput('invPreOrcanMonthly', preMonthly.nisa_orcan || 0);
+        setInvInput('invPreFangMonthly',  preMonthly.nisa_fang  || 0);
+        setInvInput('invPreStockMonthly', preMonthly.company_stock || 0);
+        setInvInput('invPreOrcanBonus',   preBonus.nisa_orcan   || 0);
+        setInvInput('invPreFangBonus',    preBonus.nisa_fang    || 0);
+
+        // NISA後
+        const post = plan.post_nisa_full || {};
+        const postMonthly = post.monthly || {};
+        const postBonus   = post.bonus_per_payment || {};
+        setInvInput('invPostStockMonthly', postMonthly.company_stock || 0);
+        setInvInput('invPostStockBonus',   postBonus.company_stock   || 0);
+
+        updateInvSummaries();
+
+        // 変更時にサマリーをリアルタイム更新
+        [
+            'invPreOrcanMonthly','invPreFangMonthly','invPreStockMonthly',
+            'invPreOrcanBonus','invPreFangBonus',
+            'invPostStockMonthly','invPostStockBonus'
+        ].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', updateInvSummaries);
+        });
+
+        // 保存ボタン
+        const saveBtn = document.getElementById('saveInvestmentPlanBtn');
+        if (saveBtn) {
+            saveBtn.replaceWith(saveBtn.cloneNode(true)); // イベント重複防止
+            document.getElementById('saveInvestmentPlanBtn').addEventListener('click', saveInvestmentPlan);
+        }
+    } catch (err) {
+        console.error('投資設定エディタ読み込みエラー:', err);
+    }
+}
+
+function setInvInput(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+}
+
+function getInvInput(id) {
+    const el = document.getElementById(id);
+    return el ? (parseInt(el.value) || 0) : 0;
+}
+
+function updateInvSummaries() {
+    // NISA前サマリー
+    const preOrcanM  = getInvInput('invPreOrcanMonthly');
+    const preFangM   = getInvInput('invPreFangMonthly');
+    const preStockM  = getInvInput('invPreStockMonthly');
+    const preOrcanB  = getInvInput('invPreOrcanBonus');
+    const preFangB   = getInvInput('invPreFangBonus');
+    const preMonthly = preOrcanM + preFangM + preStockM;
+    const preBonus   = preOrcanB + preFangB;
+    const preAnnual  = preMonthly * 12 + preBonus * 2;
+
+    const preEl = document.getElementById('invPreSummary');
+    if (preEl) preEl.innerHTML =
+        `月合計: <strong>${formatCurrency(preMonthly)}</strong>　` +
+        `ボーナス合計(年2回): <strong>${formatCurrency(preBonus * 2)}</strong>　` +
+        `年間合計: <strong>${formatCurrency(preAnnual)}</strong>`;
+
+    // NISA後サマリー
+    const postStockM = getInvInput('invPostStockMonthly');
+    const postStockB = getInvInput('invPostStockBonus');
+    const postAnnual = postStockM * 12 + postStockB * 2;
+
+    const postEl = document.getElementById('invPostSummary');
+    if (postEl) postEl.innerHTML =
+        `月合計: <strong>${formatCurrency(postStockM)}</strong>　` +
+        `ボーナス合計(年2回): <strong>${formatCurrency(postStockB * 2)}</strong>　` +
+        `年間合計: <strong>${formatCurrency(postAnnual)}</strong>`;
+}
+
+async function saveInvestmentPlan() {
+    const nisaLimit = parseInt(document.getElementById('invNisaLimit').value) || 0;
+    if (nisaLimit < 0) { alert('NISA枠上限は0以上で入力してください'); return; }
+
+    const plan = {
+        nisa_lifetime_limit: nisaLimit,
+        pre_nisa_full: {
+            monthly: {
+                nisa_orcan:    getInvInput('invPreOrcanMonthly'),
+                nisa_fang:     getInvInput('invPreFangMonthly'),
+                company_stock: getInvInput('invPreStockMonthly')
+            },
+            bonus_per_payment: {
+                nisa_orcan: getInvInput('invPreOrcanBonus'),
+                nisa_fang:  getInvInput('invPreFangBonus')
+            }
+        },
+        post_nisa_full: {
+            monthly: {
+                company_stock: getInvInput('invPostStockMonthly')
+            },
+            bonus_per_payment: {
+                company_stock: getInvInput('invPostStockBonus')
+            }
+        }
+    };
+
+    try {
+        showLoading(true);
+        const result = await eel.update_investment_plan(plan)();
+        showLoading(false);
+        if (result.success) {
+            showToast('投資プランを更新しました');
+            await refreshAfterEdit();
+        } else {
+            alert('保存に失敗しました: ' + result.error);
+        }
+    } catch (err) {
+        console.error('投資プラン保存エラー:', err);
+        showLoading(false);
+        alert('保存中にエラーが発生しました');
+    }
 }
 
 console.log('app.js ロード完了');

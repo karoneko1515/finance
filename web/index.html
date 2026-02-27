@@ -514,6 +514,7 @@
                     <button class="editor-tab active" data-editor="salary">💴 給与・収入</button>
                     <button class="editor-tab" data-editor="events">📅 ライフイベント</button>
                     <button class="editor-tab" data-editor="expenses">🛒 生活費</button>
+                    <button class="editor-tab" data-editor="investment">💰 投資設定</button>
                 </div>
 
                 <!-- ══ 給与エディタ ══ -->
@@ -620,6 +621,95 @@
                         <p>各フェーズの月次生活費を編集できます。項目を変更後、フェーズ右上の「保存」ボタンで反映されます。</p>
                     </div>
                     <div id="phaseExpensesAccordion"></div>
+                </div>
+
+                <!-- ══ 投資設定エディタ ══ -->
+                <div id="editor-investment" class="editor-panel">
+                    <div class="editor-phase-hint">
+                        <p>
+                            NISA（オルカン・FANG+）と自社株の積立額を設定できます。<br>
+                            NISA枠（1800万円）が満額になると自動で「NISA満額後」プランに切り替わります。<br>
+                            変更後「保存・再計算」を押してください。
+                        </p>
+                    </div>
+
+                    <!-- NISA枠上限 -->
+                    <div class="card editor-inv-card">
+                        <h3>NISA生涯投資枠</h3>
+                        <div class="inv-row">
+                            <div class="settings-item">
+                                <label>生涯投資枠上限（円）</label>
+                                <input type="number" id="invNisaLimit" class="settings-input"
+                                       min="0" step="1000000" value="18000000">
+                            </div>
+                            <div class="inv-note">
+                                ※ 2024年制度：最大1,800万円（つみたて1,200万＋成長600万）
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NISA枠が埋まる前 -->
+                    <div class="card editor-inv-card">
+                        <h3>📈 NISA枠が埋まる前</h3>
+                        <div class="inv-section-label">月次積立（毎月）</div>
+                        <div class="inv-grid">
+                            <div class="settings-item">
+                                <label>オルカン NISA（円/月）</label>
+                                <input type="number" id="invPreOrcanMonthly" class="settings-input"
+                                       min="0" step="1000" value="40000">
+                            </div>
+                            <div class="settings-item">
+                                <label>FANG+ NISA（円/月）</label>
+                                <input type="number" id="invPreFangMonthly" class="settings-input"
+                                       min="0" step="1000" value="40000">
+                            </div>
+                            <div class="settings-item">
+                                <label>自社株（円/月）</label>
+                                <input type="number" id="invPreStockMonthly" class="settings-input"
+                                       min="0" step="1000" value="20000">
+                            </div>
+                        </div>
+                        <div class="inv-section-label" style="margin-top:1rem;">ボーナス時（1回分）</div>
+                        <div class="inv-grid">
+                            <div class="settings-item">
+                                <label>オルカン NISA（円/回）</label>
+                                <input type="number" id="invPreOrcanBonus" class="settings-input"
+                                       min="0" step="10000" value="150000">
+                            </div>
+                            <div class="settings-item">
+                                <label>FANG+ NISA（円/回）</label>
+                                <input type="number" id="invPreFangBonus" class="settings-input"
+                                       min="0" step="10000" value="150000">
+                            </div>
+                        </div>
+                        <div class="inv-summary" id="invPreSummary"></div>
+                    </div>
+
+                    <!-- NISA枠が埋まった後 -->
+                    <div class="card editor-inv-card">
+                        <h3>🏁 NISA枠が埋まった後</h3>
+                        <div class="inv-section-label">月次積立（毎月）</div>
+                        <div class="inv-grid">
+                            <div class="settings-item">
+                                <label>自社株（円/月）</label>
+                                <input type="number" id="invPostStockMonthly" class="settings-input"
+                                       min="0" step="1000" value="70000">
+                            </div>
+                        </div>
+                        <div class="inv-section-label" style="margin-top:1rem;">ボーナス時（1回分）</div>
+                        <div class="inv-grid">
+                            <div class="settings-item">
+                                <label>自社株（円/回）</label>
+                                <input type="number" id="invPostStockBonus" class="settings-input"
+                                       min="0" step="10000" value="150000">
+                            </div>
+                        </div>
+                        <div class="inv-summary" id="invPostSummary"></div>
+                    </div>
+
+                    <div class="inv-actions">
+                        <button id="saveInvestmentPlanBtn" class="btn btn-primary">保存・再計算</button>
+                    </div>
                 </div>
 
             </section>
