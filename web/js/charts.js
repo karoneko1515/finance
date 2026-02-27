@@ -128,6 +128,39 @@ function renderAssetsBreakdownChart() {
             fillcolor: '#1e3a8a',
             line: { width: 0 },
             hovertemplate: '%{x}歳 - NISA(オルカン): %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: yearlyData.map(d => d.nisa_sp500 || 0),
+            name: 'NISA(SP500)',
+            type: 'scatter',
+            mode: 'lines',
+            stackgroup: 'one',
+            fillcolor: '#0ea5e9',
+            line: { width: 0 },
+            hovertemplate: '%{x}歳 - NISA(SP500): %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: yearlyData.map(d => (d.spouse_nisa_orcan || 0) + (d.spouse_nisa_sp500 || 0)),
+            name: '配偶者NISA',
+            type: 'scatter',
+            mode: 'lines',
+            stackgroup: 'one',
+            fillcolor: '#f472b6',
+            line: { width: 0 },
+            hovertemplate: '%{x}歳 - 配偶者NISA: %{y:,.0f}円<extra></extra>'
+        },
+        {
+            x: ages,
+            y: yearlyData.map(d => (d.child1_nisa || 0) + (d.child2_nisa || 0)),
+            name: '子供NISA',
+            type: 'scatter',
+            mode: 'lines',
+            stackgroup: 'one',
+            fillcolor: '#6ee7b7',
+            line: { width: 0 },
+            hovertemplate: '%{x}歳 - 子供NISA: %{y:,.0f}円<extra></extra>'
         }
     ];
 
@@ -412,7 +445,12 @@ function translateKey(key) {
         'university_living_support': '大学生活費',
         'nisa_orcan': 'NISA(オルカン)',
         'nisa_fang': 'NISA(FANG+)',
-        'company_stock': '自社株',
+        'nisa_sp500': 'NISA(SP500)',
+        'spouse_nisa_orcan': '配偶者NISA(オルカン)',
+        'spouse_nisa_sp500': '配偶者NISA(SP500)',
+        'child1_nisa': '子供NISA(第一子)',
+        'child2_nisa': '子供NISA(第二子)',
+        'company_stock': '自社株(三菱重工)',
         'education_fund': '教育資金',
         'marriage_fund': '結婚資金',
         'emergency_fund': '緊急予備費',
@@ -719,40 +757,27 @@ function renderAssetsPieCharts(assetsData) {
     // 年始の円グラフ
     const startLabels = [];
     const startValues = [];
-    const colors = ['#1e3a8a', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
+    const allColors = ['#1e3a8a', '#3b82f6', '#0ea5e9', '#8b5cf6', '#f472b6', '#6ee7b7', '#ec4899', '#f59e0b', '#10b981'];
+    const startColors = [];
 
-    if (assetsStart.nisa_orcan > 0) {
-        startLabels.push('NISA(オルカン)');
-        startValues.push(assetsStart.nisa_orcan);
-    }
-    if (assetsStart.nisa_fang > 0) {
-        startLabels.push('NISA(FANG+)');
-        startValues.push(assetsStart.nisa_fang);
-    }
-    if (assetsStart.company_stock > 0) {
-        startLabels.push('自社株');
-        startValues.push(assetsStart.company_stock);
-    }
-    if (assetsStart.taxable_account > 0) {
-        startLabels.push('特定口座');
-        startValues.push(assetsStart.taxable_account);
-    }
-    if (assetsStart.education_fund > 0) {
-        startLabels.push('教育資金');
-        startValues.push(assetsStart.education_fund);
-    }
-    if (assetsStart.cash > 0) {
-        startLabels.push('現金・預金');
-        startValues.push(assetsStart.cash);
-    }
+    const addStart = (label, value, color) => {
+        if (value > 0) { startLabels.push(label); startValues.push(value); startColors.push(color); }
+    };
+    addStart('NISA(オルカン)',  assetsStart.nisa_orcan || 0,       '#1e3a8a');
+    addStart('NISA(FANG+)',    assetsStart.nisa_fang  || 0,       '#3b82f6');
+    addStart('NISA(SP500)',    assetsStart.nisa_sp500 || 0,       '#0ea5e9');
+    addStart('配偶者NISA',     (assetsStart.spouse_nisa_orcan || 0) + (assetsStart.spouse_nisa_sp500 || 0), '#f472b6');
+    addStart('子供NISA',       (assetsStart.child1_nisa || 0) + (assetsStart.child2_nisa || 0), '#6ee7b7');
+    addStart('自社株',          assetsStart.company_stock || 0,    '#8b5cf6');
+    addStart('特定口座',        assetsStart.taxable_account || 0,  '#ec4899');
+    addStart('教育資金',        assetsStart.education_fund || 0,   '#f59e0b');
+    addStart('現金・預金',      assetsStart.cash || 0,             '#10b981');
 
     const startTrace = {
         labels: startLabels,
         values: startValues,
         type: 'pie',
-        marker: {
-            colors: colors.slice(0, startLabels.length)
-        },
+        marker: { colors: startColors },
         textinfo: 'label+percent',
         textposition: 'inside',
         hovertemplate: '%{label}: %{value:,.0f}円<br>%{percent}<extra></extra>'
@@ -779,39 +804,26 @@ function renderAssetsPieCharts(assetsData) {
     // 年末の円グラフ
     const endLabels = [];
     const endValues = [];
+    const endColors = [];
 
-    if (assetsEnd.nisa_orcan > 0) {
-        endLabels.push('NISA(オルカン)');
-        endValues.push(assetsEnd.nisa_orcan);
-    }
-    if (assetsEnd.nisa_fang > 0) {
-        endLabels.push('NISA(FANG+)');
-        endValues.push(assetsEnd.nisa_fang);
-    }
-    if (assetsEnd.company_stock > 0) {
-        endLabels.push('自社株');
-        endValues.push(assetsEnd.company_stock);
-    }
-    if (assetsEnd.taxable_account > 0) {
-        endLabels.push('特定口座');
-        endValues.push(assetsEnd.taxable_account);
-    }
-    if (assetsEnd.education_fund > 0) {
-        endLabels.push('教育資金');
-        endValues.push(assetsEnd.education_fund);
-    }
-    if (assetsEnd.cash > 0) {
-        endLabels.push('現金・預金');
-        endValues.push(assetsEnd.cash);
-    }
+    const addEnd = (label, value, color) => {
+        if (value > 0) { endLabels.push(label); endValues.push(value); endColors.push(color); }
+    };
+    addEnd('NISA(オルカン)',  assetsEnd.nisa_orcan || 0,       '#1e3a8a');
+    addEnd('NISA(FANG+)',    assetsEnd.nisa_fang  || 0,       '#3b82f6');
+    addEnd('NISA(SP500)',    assetsEnd.nisa_sp500 || 0,       '#0ea5e9');
+    addEnd('配偶者NISA',     (assetsEnd.spouse_nisa_orcan || 0) + (assetsEnd.spouse_nisa_sp500 || 0), '#f472b6');
+    addEnd('子供NISA',       (assetsEnd.child1_nisa || 0) + (assetsEnd.child2_nisa || 0), '#6ee7b7');
+    addEnd('自社株',          assetsEnd.company_stock || 0,    '#8b5cf6');
+    addEnd('特定口座',        assetsEnd.taxable_account || 0,  '#ec4899');
+    addEnd('教育資金',        assetsEnd.education_fund || 0,   '#f59e0b');
+    addEnd('現金・預金',      assetsEnd.cash || 0,             '#10b981');
 
     const endTrace = {
         labels: endLabels,
         values: endValues,
         type: 'pie',
-        marker: {
-            colors: colors.slice(0, endLabels.length)
-        },
+        marker: { colors: endColors },
         textinfo: 'label+percent',
         textposition: 'inside',
         hovertemplate: '%{label}: %{value:,.0f}円<br>%{percent}<extra></extra>'

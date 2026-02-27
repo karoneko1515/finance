@@ -115,6 +115,14 @@ class DataLoader:
         """投資プラン（NISA枠管理・オルカン/FANG+/自社株配分）を取得"""
         return self.plan_data.get("investment_plan", {})
 
+    def get_spouse_nisa(self):
+        """配偶者NISAプランを取得"""
+        return self.plan_data.get("spouse_nisa", {})
+
+    def get_child_nisa(self):
+        """子供NISAプラン（教育費積立）を取得"""
+        return self.plan_data.get("child_nisa", {})
+
     def get_investment_settings(self):
         """投資設定を取得"""
         return self.plan_data.get("investment_settings", {})

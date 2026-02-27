@@ -72,11 +72,13 @@
       "monthly": {
         "nisa_orcan": 40000,
         "nisa_fang": 40000,
+        "nisa_sp500": 0,
         "company_stock": 20000
       },
       "bonus_per_payment": {
         "nisa_orcan": 150000,
-        "nisa_fang": 150000
+        "nisa_fang": 150000,
+        "nisa_sp500": 0
       }
     },
     "post_nisa_full": {
@@ -87,6 +89,31 @@
         "company_stock": 150000
       }
     }
+  },
+  "spouse_nisa": {
+    "enabled": true,
+    "nisa_lifetime_limit": 18000000,
+    "expected_return": 0.05,
+    "pre_nisa_full": {
+      "monthly": {
+        "nisa_orcan": 20000,
+        "nisa_sp500": 20000
+      },
+      "bonus_per_payment": {
+        "nisa_orcan": 30000,
+        "nisa_sp500": 30000
+      }
+    },
+    "post_nisa_full": {
+      "monthly": {},
+      "bonus_per_payment": {}
+    }
+  },
+  "child_nisa": {
+    "enabled": true,
+    "nisa_lifetime_limit_per_child": 18000000,
+    "expected_return": 0.07,
+    "monthly_per_child": 15000
   },
   "phase_definitions": {
     "phase1": {
@@ -223,10 +250,12 @@
       "expected_return": 0.05
     },
     "company_stock": {
-      "initial_price": 2000,
-      "price_growth_rate": 0.03,
-      "dividend_yield": 0.03,
-      "incentive_rate": 0.05
+      "company_name": "三菱重工業",
+      "ticker": "7011.T",
+      "initial_price": 10000,
+      "price_growth_rate": 0.05,
+      "dividend_yield": 0.015,
+      "incentive_rate": 0.10
     },
     "taxable_account": {
       "expected_return": 0.05,

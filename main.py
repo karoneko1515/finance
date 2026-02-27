@@ -234,6 +234,58 @@ def update_investment_plan(investment_plan):
 
 
 @eel.expose
+def get_spouse_nisa():
+    """配偶者NISA設定を取得"""
+    try:
+        return {"success": True, "data": data_loader.get_spouse_nisa()}
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def update_spouse_nisa(spouse_nisa):
+    """配偶者NISA設定を更新して再シミュレーション"""
+    try:
+        if isinstance(spouse_nisa, str):
+            spouse_nisa = json.loads(spouse_nisa)
+        plan_data = data_loader.get_all_data()
+        plan_data["spouse_nisa"] = spouse_nisa
+        data_loader.save_user_plan(plan_data)
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+        calculator.simulate_30_years()
+        return {"success": True, "message": "配偶者NISA設定を更新しました"}
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def get_child_nisa():
+    """子供NISA設定を取得"""
+    try:
+        return {"success": True, "data": data_loader.get_child_nisa()}
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
+def update_child_nisa(child_nisa):
+    """子供NISA設定を更新して再シミュレーション"""
+    try:
+        if isinstance(child_nisa, str):
+            child_nisa = json.loads(child_nisa)
+        plan_data = data_loader.get_all_data()
+        plan_data["child_nisa"] = child_nisa
+        data_loader.save_user_plan(plan_data)
+        global calculator
+        calculator = LifePlanCalculator(data_loader)
+        calculator.simulate_30_years()
+        return {"success": True, "message": "子供NISA設定を更新しました"}
+    except Exception as e:
+        return _api_error(e)
+
+
+@eel.expose
 def reset_plan_to_default():
     """
     プラン設定をデフォルトに戻す
@@ -934,11 +986,12 @@ def get_goal_achievement():
         else:
             emergency_current = current_year_data.get("cash", 0)
 
-        # NISA積立進捗（計画累計）
+        # NISA積立進捗（計画累計・本人+SP500）
         nisa_limit = calculator.investment_plan.get("nisa_lifetime_limit", 18000000)
         nisa_balance_current = (
             current_year_data.get("nisa_orcan", 0)
             + current_year_data.get("nisa_fang", 0)
+            + current_year_data.get("nisa_sp500", 0)
         )
 
         # 退職準備進捗（現計画資産 / 最終目標）

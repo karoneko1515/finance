@@ -2174,11 +2174,13 @@ async function loadInvestmentEditor() {
         const pre = plan.pre_nisa_full || {};
         const preMonthly = pre.monthly || {};
         const preBonus   = pre.bonus_per_payment || {};
-        setInvInput('invPreOrcanMonthly', preMonthly.nisa_orcan || 0);
-        setInvInput('invPreFangMonthly',  preMonthly.nisa_fang  || 0);
-        setInvInput('invPreStockMonthly', preMonthly.company_stock || 0);
-        setInvInput('invPreOrcanBonus',   preBonus.nisa_orcan   || 0);
-        setInvInput('invPreFangBonus',    preBonus.nisa_fang    || 0);
+        setInvInput('invPreOrcanMonthly',  preMonthly.nisa_orcan  || 0);
+        setInvInput('invPreFangMonthly',   preMonthly.nisa_fang   || 0);
+        setInvInput('invPreSp500Monthly',  preMonthly.nisa_sp500  || 0);
+        setInvInput('invPreStockMonthly',  preMonthly.company_stock || 0);
+        setInvInput('invPreOrcanBonus',    preBonus.nisa_orcan    || 0);
+        setInvInput('invPreFangBonus',     preBonus.nisa_fang     || 0);
+        setInvInput('invPreSp500Bonus',    preBonus.nisa_sp500    || 0);
 
         // NISA後
         const post = plan.post_nisa_full || {};
@@ -2191,19 +2193,63 @@ async function loadInvestmentEditor() {
 
         // 変更時にサマリーをリアルタイム更新
         [
-            'invPreOrcanMonthly','invPreFangMonthly','invPreStockMonthly',
-            'invPreOrcanBonus','invPreFangBonus',
+            'invPreOrcanMonthly','invPreFangMonthly','invPreSp500Monthly','invPreStockMonthly',
+            'invPreOrcanBonus','invPreFangBonus','invPreSp500Bonus',
             'invPostStockMonthly','invPostStockBonus'
         ].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('input', updateInvSummaries);
         });
 
-        // 保存ボタン
+        // 本人NISA保存ボタン
         const saveBtn = document.getElementById('saveInvestmentPlanBtn');
         if (saveBtn) {
-            saveBtn.replaceWith(saveBtn.cloneNode(true)); // イベント重複防止
+            saveBtn.replaceWith(saveBtn.cloneNode(true));
             document.getElementById('saveInvestmentPlanBtn').addEventListener('click', saveInvestmentPlan);
+        }
+
+        // 配偶者NISA読み込み
+        const sResult = await eel.get_spouse_nisa()();
+        if (sResult.success) {
+            const sn = sResult.data;
+            const el_en = document.getElementById('spouseNisaEnabled');
+            if (el_en) el_en.checked = sn.enabled !== false;
+            setInvInput('spouseNisaLimit', sn.nisa_lifetime_limit || 18000000);
+            const snReturn = document.getElementById('spouseNisaReturn');
+            if (snReturn) snReturn.value = sn.expected_return || 0.05;
+            const snPre = (sn.pre_nisa_full || {});
+            const snM = snPre.monthly || {};
+            const snB = snPre.bonus_per_payment || {};
+            setInvInput('spouseInvPreOrcanMonthly', snM.nisa_orcan  || 0);
+            setInvInput('spouseInvPreSp500Monthly', snM.nisa_sp500  || 0);
+            setInvInput('spouseInvPreOrcanBonus',   snB.nisa_orcan  || 0);
+            setInvInput('spouseInvPreSp500Bonus',   snB.nisa_sp500  || 0);
+        }
+        const spouseSaveBtn = document.getElementById('saveSpouseNisaBtn');
+        if (spouseSaveBtn) {
+            spouseSaveBtn.replaceWith(spouseSaveBtn.cloneNode(true));
+            document.getElementById('saveSpouseNisaBtn').addEventListener('click', saveSpouseNisa);
+        }
+
+        // 子供NISA読み込み
+        const cResult = await eel.get_child_nisa()();
+        if (cResult.success) {
+            const cn = cResult.data;
+            const el_en = document.getElementById('childNisaEnabled');
+            if (el_en) el_en.checked = cn.enabled !== false;
+            setInvInput('childNisaMonthly', cn.monthly_per_child || 33333);
+            const cnReturn = document.getElementById('childNisaReturn');
+            if (cnReturn) cnReturn.value = cn.expected_return || 0.07;
+            updateChildNisaSummary(cn.monthly_per_child || 33333);
+        }
+        const childSaveBtn = document.getElementById('saveChildNisaBtn');
+        if (childSaveBtn) {
+            childSaveBtn.replaceWith(childSaveBtn.cloneNode(true));
+            document.getElementById('saveChildNisaBtn').addEventListener('click', saveChildNisa);
+        }
+        const childMonthlyEl = document.getElementById('childNisaMonthly');
+        if (childMonthlyEl) {
+            childMonthlyEl.addEventListener('input', () => updateChildNisaSummary(getInvInput('childNisaMonthly')));
         }
     } catch (err) {
         console.error('投資設定エディタ読み込みエラー:', err);
@@ -2220,15 +2266,26 @@ function getInvInput(id) {
     return el ? (parseInt(el.value) || 0) : 0;
 }
 
+function updateChildNisaSummary(monthly) {
+    const annual = monthly * 12;
+    const total18y = annual * 18;
+    const el = document.getElementById('childNisaSummary');
+    if (el) {
+        el.innerHTML = `1人あたり年間 <strong>${formatCurrency(annual)}</strong> ×2人 ＝ 年間 <strong>${formatCurrency(annual*2)}</strong>　|　18年間積立元本（1人）: <strong>${formatCurrency(total18y)}</strong>`;
+    }
+}
+
 function updateInvSummaries() {
     // NISA前サマリー
     const preOrcanM  = getInvInput('invPreOrcanMonthly');
     const preFangM   = getInvInput('invPreFangMonthly');
+    const preSp500M  = getInvInput('invPreSp500Monthly');
     const preStockM  = getInvInput('invPreStockMonthly');
     const preOrcanB  = getInvInput('invPreOrcanBonus');
     const preFangB   = getInvInput('invPreFangBonus');
-    const preMonthly = preOrcanM + preFangM + preStockM;
-    const preBonus   = preOrcanB + preFangB;
+    const preSp500B  = getInvInput('invPreSp500Bonus');
+    const preMonthly = preOrcanM + preFangM + preSp500M + preStockM;
+    const preBonus   = preOrcanB + preFangB + preSp500B;
     const preAnnual  = preMonthly * 12 + preBonus * 2;
 
     const preEl = document.getElementById('invPreSummary');
@@ -2259,11 +2316,13 @@ async function saveInvestmentPlan() {
             monthly: {
                 nisa_orcan:    getInvInput('invPreOrcanMonthly'),
                 nisa_fang:     getInvInput('invPreFangMonthly'),
+                nisa_sp500:    getInvInput('invPreSp500Monthly'),
                 company_stock: getInvInput('invPreStockMonthly')
             },
             bonus_per_payment: {
                 nisa_orcan: getInvInput('invPreOrcanBonus'),
-                nisa_fang:  getInvInput('invPreFangBonus')
+                nisa_fang:  getInvInput('invPreFangBonus'),
+                nisa_sp500: getInvInput('invPreSp500Bonus')
             }
         },
         post_nisa_full: {
@@ -2290,6 +2349,62 @@ async function saveInvestmentPlan() {
         console.error('投資プラン保存エラー:', err);
         showLoading(false);
         alert('保存中にエラーが発生しました');
+    }
+}
+
+async function saveSpouseNisa() {
+    const plan = {
+        enabled: document.getElementById('spouseNisaEnabled')?.checked ?? true,
+        nisa_lifetime_limit: getInvInput('spouseNisaLimit') || 18000000,
+        expected_return: parseFloat(document.getElementById('spouseNisaReturn')?.value || '0.05'),
+        pre_nisa_full: {
+            monthly: {
+                nisa_orcan: getInvInput('spouseInvPreOrcanMonthly'),
+                nisa_sp500: getInvInput('spouseInvPreSp500Monthly')
+            },
+            bonus_per_payment: {
+                nisa_orcan: getInvInput('spouseInvPreOrcanBonus'),
+                nisa_sp500: getInvInput('spouseInvPreSp500Bonus')
+            }
+        },
+        post_nisa_full: { monthly: {}, bonus_per_payment: {} }
+    };
+    try {
+        showLoading(true);
+        const result = await eel.update_spouse_nisa(plan)();
+        showLoading(false);
+        if (result.success) {
+            showToast('配偶者NISA設定を更新しました');
+            await refreshAfterEdit();
+        } else {
+            alert('保存に失敗しました: ' + result.error);
+        }
+    } catch (err) {
+        console.error('配偶者NISA保存エラー:', err);
+        showLoading(false);
+    }
+}
+
+async function saveChildNisa() {
+    const plan = {
+        enabled: document.getElementById('childNisaEnabled')?.checked ?? true,
+        nisa_lifetime_limit_per_child: 18000000,
+        expected_return: parseFloat(document.getElementById('childNisaReturn')?.value || '0.07'),
+        monthly_per_child: getInvInput('childNisaMonthly')
+    };
+    try {
+        showLoading(true);
+        const result = await eel.update_child_nisa(plan)();
+        showLoading(false);
+        if (result.success) {
+            showToast('子供NISA設定を更新しました');
+            await refreshAfterEdit();
+        } else {
+            alert('保存に失敗しました: ' + result.error);
+        }
+    } catch (err) {
+        console.error('子供NISA保存エラー:', err);
+        showLoading(false);
     }
 }
 

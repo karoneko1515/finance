@@ -627,15 +627,16 @@
                 <div id="editor-investment" class="editor-panel">
                     <div class="editor-phase-hint">
                         <p>
-                            NISA（オルカン・FANG+）と自社株の積立額を設定できます。<br>
+                            NISA（オルカン・FANG+・SP500）と自社株の積立額を設定できます。<br>
                             NISA枠（1800万円）が満額になると自動で「NISA満額後」プランに切り替わります。<br>
+                            配偶者NISA・子供NISAはそれぞれ別枠管理です。<br>
                             変更後「保存・再計算」を押してください。
                         </p>
                     </div>
 
-                    <!-- NISA枠上限 -->
+                    <!-- ── 本人NISA ── -->
                     <div class="card editor-inv-card">
-                        <h3>NISA生涯投資枠</h3>
+                        <h3>本人 NISA 生涯投資枠</h3>
                         <div class="inv-row">
                             <div class="settings-item">
                                 <label>生涯投資枠上限（円）</label>
@@ -650,7 +651,7 @@
 
                     <!-- NISA枠が埋まる前 -->
                     <div class="card editor-inv-card">
-                        <h3>📈 NISA枠が埋まる前</h3>
+                        <h3>📈 本人 NISA枠が埋まる前</h3>
                         <div class="inv-section-label">月次積立（毎月）</div>
                         <div class="inv-grid">
                             <div class="settings-item">
@@ -664,7 +665,12 @@
                                        min="0" step="1000" value="40000">
                             </div>
                             <div class="settings-item">
-                                <label>自社株（円/月）</label>
+                                <label>SP500 NISA（円/月）</label>
+                                <input type="number" id="invPreSp500Monthly" class="settings-input"
+                                       min="0" step="1000" value="0">
+                            </div>
+                            <div class="settings-item">
+                                <label>自社株（三菱重工）（円/月）</label>
                                 <input type="number" id="invPreStockMonthly" class="settings-input"
                                        min="0" step="1000" value="20000">
                             </div>
@@ -681,17 +687,22 @@
                                 <input type="number" id="invPreFangBonus" class="settings-input"
                                        min="0" step="10000" value="150000">
                             </div>
+                            <div class="settings-item">
+                                <label>SP500 NISA（円/回）</label>
+                                <input type="number" id="invPreSp500Bonus" class="settings-input"
+                                       min="0" step="10000" value="0">
+                            </div>
                         </div>
                         <div class="inv-summary" id="invPreSummary"></div>
                     </div>
 
                     <!-- NISA枠が埋まった後 -->
                     <div class="card editor-inv-card">
-                        <h3>🏁 NISA枠が埋まった後</h3>
+                        <h3>🏁 本人 NISA枠が埋まった後</h3>
                         <div class="inv-section-label">月次積立（毎月）</div>
                         <div class="inv-grid">
                             <div class="settings-item">
-                                <label>自社株（円/月）</label>
+                                <label>自社株（三菱重工）（円/月）</label>
                                 <input type="number" id="invPostStockMonthly" class="settings-input"
                                        min="0" step="1000" value="70000">
                             </div>
@@ -708,7 +719,87 @@
                     </div>
 
                     <div class="inv-actions">
-                        <button id="saveInvestmentPlanBtn" class="btn btn-primary">保存・再計算</button>
+                        <button id="saveInvestmentPlanBtn" class="btn btn-primary">本人NISA 保存・再計算</button>
+                    </div>
+
+                    <!-- ── 配偶者NISA ── -->
+                    <div class="card editor-inv-card" style="margin-top:2rem; border-top: 2px solid var(--accent-secondary, #f59e0b);">
+                        <h3>💑 配偶者 NISA（別枠1800万円）</h3>
+                        <div class="inv-row">
+                            <div class="settings-item">
+                                <label>
+                                    <input type="checkbox" id="spouseNisaEnabled"> 有効にする
+                                </label>
+                            </div>
+                            <div class="settings-item">
+                                <label>生涯投資枠上限（円）</label>
+                                <input type="number" id="spouseNisaLimit" class="settings-input"
+                                       min="0" step="1000000" value="18000000">
+                            </div>
+                            <div class="settings-item">
+                                <label>期待リターン（年率）</label>
+                                <input type="number" id="spouseNisaReturn" class="settings-input"
+                                       min="0" max="0.2" step="0.005" value="0.05">
+                            </div>
+                        </div>
+                        <div class="inv-section-label">月次積立（毎月）</div>
+                        <div class="inv-grid">
+                            <div class="settings-item">
+                                <label>オルカン NISA（円/月）</label>
+                                <input type="number" id="spouseInvPreOrcanMonthly" class="settings-input"
+                                       min="0" step="1000" value="20000">
+                            </div>
+                            <div class="settings-item">
+                                <label>SP500 NISA（円/月）</label>
+                                <input type="number" id="spouseInvPreSp500Monthly" class="settings-input"
+                                       min="0" step="1000" value="20000">
+                            </div>
+                        </div>
+                        <div class="inv-section-label" style="margin-top:1rem;">ボーナス時（1回分）</div>
+                        <div class="inv-grid">
+                            <div class="settings-item">
+                                <label>オルカン NISA（円/回）</label>
+                                <input type="number" id="spouseInvPreOrcanBonus" class="settings-input"
+                                       min="0" step="10000" value="30000">
+                            </div>
+                            <div class="settings-item">
+                                <label>SP500 NISA（円/回）</label>
+                                <input type="number" id="spouseInvPreSp500Bonus" class="settings-input"
+                                       min="0" step="10000" value="30000">
+                            </div>
+                        </div>
+                        <div class="inv-actions">
+                            <button id="saveSpouseNisaBtn" class="btn btn-secondary">配偶者NISA 保存・再計算</button>
+                        </div>
+                    </div>
+
+                    <!-- ── 子供NISA ── -->
+                    <div class="card editor-inv-card" style="margin-top:2rem; border-top: 2px solid var(--accent-tertiary, #10b981);">
+                        <h3>👶 子供 NISA（教育費積立・子供1人1800万円枠）</h3>
+                        <div class="inv-note" style="margin-bottom:1rem;">
+                            ※ お子様の出生時から18歳まで積立。大学費用は子供NISAから優先支出されます。
+                        </div>
+                        <div class="inv-row">
+                            <div class="settings-item">
+                                <label>
+                                    <input type="checkbox" id="childNisaEnabled"> 有効にする
+                                </label>
+                            </div>
+                            <div class="settings-item">
+                                <label>1人あたり月次積立（円/月）</label>
+                                <input type="number" id="childNisaMonthly" class="settings-input"
+                                       min="0" step="1000" value="15000">
+                            </div>
+                            <div class="settings-item">
+                                <label>期待リターン（年率）</label>
+                                <input type="number" id="childNisaReturn" class="settings-input"
+                                       min="0" max="0.2" step="0.005" value="0.07">
+                            </div>
+                        </div>
+                        <div class="inv-note" id="childNisaSummary"></div>
+                        <div class="inv-actions">
+                            <button id="saveChildNisaBtn" class="btn btn-secondary">子供NISA 保存・再計算</button>
+                        </div>
                     </div>
                 </div>
 
