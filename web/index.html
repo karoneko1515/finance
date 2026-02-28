@@ -975,8 +975,66 @@
         </div>
     </section>
 
+    <!-- モバイル ボトムナビゲーション -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+        <button class="mobile-nav-item active" data-view="dashboard">
+            <span class="mobile-nav-icon">📈</span>
+            <span class="mobile-nav-label">ホーム</span>
+        </button>
+        <button class="mobile-nav-item" data-view="yearly-detail">
+            <span class="mobile-nav-icon">📅</span>
+            <span class="mobile-nav-label">年齢別</span>
+        </button>
+        <button class="mobile-nav-item" data-view="cashflow">
+            <span class="mobile-nav-icon">💹</span>
+            <span class="mobile-nav-label">CF</span>
+        </button>
+        <button class="mobile-nav-item" data-view="editor">
+            <span class="mobile-nav-icon">✏️</span>
+            <span class="mobile-nav-label">編集</span>
+        </button>
+        <button class="mobile-nav-item" id="mobileMoreBtn">
+            <span class="mobile-nav-icon">☰</span>
+            <span class="mobile-nav-label">その他</span>
+        </button>
+    </nav>
+
+    <!-- モバイル ボトムシート（その他メニュー） -->
+    <div class="mobile-sheet-overlay" id="mobileSheetOverlay"></div>
+    <div class="mobile-bottom-sheet" id="mobileBottomSheet">
+        <div class="mobile-sheet-handle"></div>
+        <div class="mobile-sheet-title">メニュー</div>
+        <div class="mobile-sheet-items">
+            <button class="mobile-sheet-item" data-view="timeline">
+                <span class="mobile-sheet-icon">⏱️</span>
+                <span>タイムライン</span>
+            </button>
+            <button class="mobile-sheet-item" data-view="education">
+                <span class="mobile-sheet-icon">🎓</span>
+                <span>教育費</span>
+            </button>
+            <button class="mobile-sheet-item" data-view="dividend">
+                <span class="mobile-sheet-icon">💰</span>
+                <span>配当金</span>
+            </button>
+            <button class="mobile-sheet-item" data-view="scenario">
+                <span class="mobile-sheet-icon">🔀</span>
+                <span>シナリオ比較</span>
+            </button>
+            <button class="mobile-sheet-item" data-view="actual">
+                <span class="mobile-sheet-icon">📊</span>
+                <span>実績管理</span>
+            </button>
+            <button class="mobile-sheet-item" data-view="montecarlo">
+                <span class="mobile-sheet-icon">🎲</span>
+                <span>モンテカルロ</span>
+            </button>
+        </div>
+    </div>
+
     <!-- JavaScriptファイル -->
     <script src="js/app.js"></script>
     <script src="js/charts.js"></script>
+    <script src="js/mobile.js"></script>
 </body>
 </html>

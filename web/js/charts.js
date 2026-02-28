@@ -42,7 +42,7 @@ function renderAssetsChart() {
             gridcolor: isDarkMode ? '#374151' : '#e5e7eb'
         },
         hovermode: 'closest',
-        margin: { t: 30, r: 30, b: 50, l: 80 }
+        margin: getMobileAwareMargins()
     };
 
     const config = {
@@ -482,15 +482,8 @@ function renderPieChart(elementId, data, title) {
     };
 
     const layout = {
-        ...getPlotlyTheme(),
-        title: '',
+        ...getMobileAwarePieLayout(''),
         showlegend: true,
-        legend: {
-            orientation: 'v',
-            x: 1.1,
-            y: 0.5
-        },
-        margin: { t: 30, r: 150, b: 30, l: 30 }
     };
 
     const config = {
@@ -784,14 +777,8 @@ function renderAssetsPieCharts(assetsData) {
     };
 
     const startLayout = {
-        ...getPlotlyTheme(),
+        ...getMobileAwarePieLayout(''),
         showlegend: true,
-        legend: {
-            orientation: 'v',
-            x: 1.1,
-            y: 0.5
-        },
-        margin: { t: 20, r: 150, b: 20, l: 20 }
     };
 
     const config = {
@@ -830,14 +817,8 @@ function renderAssetsPieCharts(assetsData) {
     };
 
     const endLayout = {
-        ...getPlotlyTheme(),
+        ...getMobileAwarePieLayout(''),
         showlegend: true,
-        legend: {
-            orientation: 'v',
-            x: 1.1,
-            y: 0.5
-        },
-        margin: { t: 20, r: 150, b: 20, l: 20 }
     };
 
     Plotly.newPlot('assetsEndPieChart', [endTrace], endLayout, config);

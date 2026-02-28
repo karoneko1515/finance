@@ -485,48 +485,411 @@ table tr:hover {
 .mb-4 { margin-bottom: 2rem; }
 
 /* ========== レスポンシブデザイン ========== */
-@media (max-width: 768px) {
-    .main-content {
-        padding: 1rem;
-    }
+/* ========== モバイルレスポンシブ ========== */
+/* デスクトップ: モバイル要素を非表示 */
+.mobile-bottom-nav,
+.mobile-bottom-sheet,
+.mobile-sheet-overlay {
+    display: none;
+}
 
-    .header {
-        padding: 1rem;
-    }
-
-    .app-title {
-        font-size: 1.25rem;
-    }
-
-    .header-controls {
-        flex-wrap: wrap;
-    }
-
+/* --- タブレット横 (≤1024px) --- */
+@media (max-width: 1024px) {
     .summary-cards, .year-summary-cards {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* --- メインモバイル (≤768px) --- */
+@media (max-width: 768px) {
+    /* ─── ナビゲーション ─── */
+    .nav-tabs { display: none; }
+
+    .mobile-bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 64px;
+        background-color: var(--bg-card);
+        border-top: 1px solid var(--border-color);
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
+        z-index: 900;
+        padding: 0;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
     }
 
-    .detail-grid {
-        grid-template-columns: 1fr;
+    .mobile-nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-weight: 600;
+        cursor: pointer;
+        padding: 8px 4px;
+        min-height: 44px;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 0.15s;
     }
 
-    .chart-container {
-        padding: 1rem;
+    .mobile-nav-item.active { color: var(--primary-color); }
+    .mobile-nav-icon { font-size: 1.25rem; line-height: 1; }
+    .mobile-nav-label { font-size: 0.6rem; letter-spacing: 0.02em; }
+
+    /* ─── ボトムシート ─── */
+    .mobile-sheet-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        z-index: 950;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+    }
+    .mobile-sheet-overlay.active { opacity: 1; pointer-events: auto; }
+
+    .mobile-bottom-sheet {
+        display: block;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        background: var(--bg-card);
+        border-radius: 16px 16px 0 0;
+        z-index: 960;
+        transform: translateY(100%);
+        transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    .mobile-bottom-sheet.active { transform: translateY(0); }
+
+    .mobile-sheet-handle {
+        width: 36px; height: 4px;
+        background: var(--border-color);
+        border-radius: 2px;
+        margin: 12px auto 8px;
+    }
+    .mobile-sheet-title {
+        font-size: 0.9rem; font-weight: 700;
+        color: var(--text-secondary);
+        padding: 0 20px 12px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .mobile-sheet-items { padding: 8px 0; }
+
+    .mobile-sheet-item {
+        display: flex; align-items: center; gap: 14px;
+        width: 100%; padding: 14px 20px;
+        background: none; border: none;
+        font-size: 1rem; font-weight: 500;
+        color: var(--text-primary);
+        cursor: pointer; text-align: left;
+        min-height: 48px;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-sheet-item:active { background-color: var(--bg-secondary); }
+    .mobile-sheet-icon { font-size: 1.3rem; width: 28px; text-align: center; }
+
+    /* ─── ヘッダー ─── */
+    .header {
+        padding: 0.75rem 1rem;
+        position: sticky;
+        top: 0;
+        z-index: 800;
+    }
+    .header-content { flex-wrap: nowrap; margin-bottom: 0; }
+    .app-title {
+        font-size: 0.85rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 55vw;
+    }
+    .header-controls { gap: 0.4rem; flex-wrap: nowrap; }
+
+    #exportBtn, #settingsBtn {
+        font-size: 0;
+        padding: 0.5rem 0.6rem;
+        min-width: 36px;
+    }
+    #exportBtn::before { content: '📥'; font-size: 1.1rem; }
+    #settingsBtn::before { content: '⚙️'; font-size: 1.1rem; }
+
+    .disclaimer {
+        font-size: 0.7rem;
+        padding: 0.5rem 0.75rem;
+        line-height: 1.4;
+        margin-top: 0.5rem;
     }
 
+    /* ─── メインコンテンツ ─── */
+    .main-content {
+        padding: 0.75rem;
+        padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* ─── カード・グリッド ─── */
+    .summary-cards, .year-summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    .card { padding: 1rem; border-radius: 0.5rem; }
+    .card:hover { transform: none; }
+    .card h3 { font-size: 0.7rem; margin-bottom: 0.4rem; }
+    .card .amount { font-size: 1.2rem; }
+
+    .detail-grid { grid-template-columns: 1fr; gap: 1rem; }
+    .asset-comparison-grid { grid-template-columns: 1fr; gap: 1rem; }
+    .dividend-info-cards { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+
+    /* ─── チャート ─── */
+    .chart-container { padding: 0.75rem; margin-bottom: 1rem; border-radius: 0.5rem; }
+    .chart-container h2 { font-size: 1.05rem; margin-bottom: 0.75rem; }
+    .chart-container h3 { font-size: 0.9rem; }
+
+    .js-plotly-plot, .plotly { width: 100% !important; }
+    .js-plotly-plot .modebar { display: none !important; }
+    .chart-container [id*="Chart"],
+    .chart-container [id*="chart"] { min-height: 250px; }
+
+    /* ─── 年齢スライダー ─── */
     .age-selector-container {
         flex-direction: column;
         align-items: stretch;
+        padding: 1rem;
+        gap: 0.75rem;
+    }
+    .age-selector-container label { font-size: 0.85rem; }
+    #ageSelector { height: 12px; }
+    #ageSelector::-webkit-slider-thumb { width: 28px; height: 28px; }
+    #ageSelector::-moz-range-thumb { width: 28px; height: 28px; }
+
+    /* ─── テーブル ─── */
+    #monthlyDetailTable,
+    .actual-records-table-wrapper,
+    .editor-table-wrapper,
+    .retirement-table-wrapper,
+    #customEventsList,
+    #comparisonTableContent {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -0.5rem;
+        padding: 0 0.5rem;
+    }
+    table th, table td { padding: 0.5rem 0.6rem; font-size: 0.75rem; }
+
+    /* ─── フォーム全般 ─── */
+    .settings-input {
+        padding: 0.65rem 0.75rem;
+        font-size: 16px;
+        border-radius: 0.5rem;
+        min-height: 44px;
+    }
+    .btn { min-height: 44px; padding: 0.625rem 1rem; }
+    .btn-sm { min-height: 36px; padding: 0.3rem 0.75rem; font-size: 0.78rem; }
+
+    /* ─── 実績管理フォーム ─── */
+    .actual-input-row {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .actual-input-row .settings-item { min-width: 100%; flex: none; }
+    .actual-input-card { padding: 1rem; }
+    .actual-summary-cards { flex-direction: column; }
+    .actual-stat-card { min-width: 100%; }
+
+    /* 年・月・年齢行は横並びのまま */
+    .actual-input-row:first-child {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    .actual-input-row:first-child .settings-item { flex: 1; min-width: 80px; }
+
+    /* ─── シナリオ比較 ─── */
+    .scenario-controls { padding: 1rem; }
+    .scenario-options {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: stretch;
+    }
+    .scenario-options label {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.4rem;
+    }
+    .scenario-options select,
+    .scenario-options input { width: 100%; min-height: 44px; }
+    .scenario-options .btn { width: 100%; min-height: 48px; }
+    .saved-scenarios-list { grid-template-columns: 1fr; }
+    .saved-scenarios-section { padding: 0.75rem; }
+    .comparison-diff { display: block; margin-left: 0; margin-top: 0.25rem; font-size: 0.72rem; }
+
+    /* ─── エディタ ─── */
+    .editor-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 0;
+        padding-bottom: 0;
+        flex-wrap: nowrap;
+    }
+    .editor-tab {
+        padding: 0.5rem 0.8rem;
+        font-size: 0.78rem;
+        white-space: nowrap;
+        flex-shrink: 0;
     }
 
-    .nav-tabs {
-        padding: 0 1rem;
-    }
+    /* 給与エディタ */
+    .editor-range-card { padding: 1rem; }
+    .editor-range-row { flex-direction: column; gap: 0.75rem; }
+    .editor-range-row input,
+    .editor-range-row select { width: 100%; }
+    .range-sep { display: none; }
 
-    .nav-tab {
-        padding: 0.75rem 1rem;
-        font-size: 0.8rem;
+    /* 投資設定エディタ */
+    .inv-grid { flex-direction: column; gap: 0.75rem; }
+    .inv-grid .settings-item { min-width: 100%; }
+    .inv-row { flex-direction: column; gap: 0.75rem; }
+    .inv-actions { padding: 0.5rem 0; }
+    .inv-actions .btn { width: 100%; min-height: 48px; }
+
+    /* ライフイベント */
+    .preset-events-grid { grid-template-columns: 1fr; }
+    .preset-event-fields { flex-direction: column; }
+    .preset-event-fields input { width: 100%; }
+    .custom-event-form { display: flex; flex-direction: column; gap: 0.75rem; }
+    .custom-event-form .editor-range-row { flex-direction: column; }
+    .custom-event-form .editor-range-row input { width: 100%; }
+
+    /* 生活費アコーディオン */
+    .phase-expense-fields { grid-template-columns: 1fr; gap: 0.5rem; }
+    .phase-card-header { padding: 0.75rem; flex-wrap: wrap; }
+
+    /* ─── モンテカルロ ─── */
+    .mc-params-grid { grid-template-columns: 1fr; }
+    .mc-run-buttons { flex-direction: column; }
+    .mc-run-btn { width: 100%; min-height: 48px; }
+    .mc-summary-grid { grid-template-columns: repeat(2, 1fr); }
+
+    /* ─── 目標ゲージ ─── */
+    #goalGaugesGrid { grid-template-columns: 1fr; }
+    .goal-gauge-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+
+    /* ─── 将来予測 ─── */
+    .predict-header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .predict-header .btn { width: 100%; }
+    .predict-info-bar { gap: 0.3rem; flex-wrap: wrap; }
+    .predict-chip { font-size: 0.7rem; padding: 0.2rem 0.5rem; }
+
+    /* ─── 退職収入 ─── */
+    .retirement-income-card { padding: 0.75rem; }
+    .retirement-income-header { flex-direction: column; }
+    .retirement-return-control { width: 100%; }
+    .retirement-return-control select { width: 100%; }
+    .retirement-base-row { flex-direction: column; gap: 0.5rem; padding: 0.75rem; }
+    .retirement-note { font-size: 0.68rem; }
+
+    /* ─── 不定期支出 ─── */
+    .irregular-expenses-section { padding: 1rem; }
+    .irregular-expense-header { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+
+    /* ─── タイムライン ─── */
+    .events-list { padding: 1rem; }
+    .event-item { padding: 0.75rem; }
+
+    /* ─── モーダル → フルスクリーン化 ─── */
+    .modal-content {
+        margin: 0;
+        width: 100%;
+        max-width: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        border-radius: 0;
+        animation: modalSlideUp 0.3s ease;
     }
+    @keyframes modalSlideUp {
+        from { opacity: 0; transform: translateY(100%); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .modal-header {
+        padding: 1rem;
+        position: sticky; top: 0;
+        background: var(--bg-card);
+        z-index: 1;
+    }
+    .modal-header h2 { font-size: 1.1rem; }
+    .modal-close { width: 44px; height: 44px; font-size: 1.5rem; }
+    .modal-body { padding: 1rem; max-height: none; overflow-y: auto; }
+    .settings-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+    .modal-footer {
+        padding: 1rem;
+        position: sticky; bottom: 0;
+        background: var(--bg-card);
+        z-index: 1;
+        flex-wrap: wrap;
+    }
+    .modal-footer .btn { flex: 1; min-width: 0; min-height: 48px; }
+
+    /* ─── トースト通知 ─── */
+    .app-toast {
+        bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+        left: 1rem; right: 1rem;
+        transform: translateX(0) translateY(80px);
+        text-align: center;
+    }
+    .app-toast.show { transform: translateX(0) translateY(0); }
+
+    /* ─── タッチ最適化 ─── */
+    .mobile-nav-item,
+    .mobile-sheet-item,
+    .nav-tab,
+    .editor-tab {
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    html { scroll-behavior: smooth; }
+
+    /* ─── ダークモード補正 ─── */
+    body.dark-mode .mobile-bottom-nav {
+        border-top-color: var(--border-color);
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+    }
+    body.dark-mode .mobile-bottom-sheet {
+        box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+    }
+}
+
+/* --- スマホ縦 (≤480px) --- */
+@media (max-width: 480px) {
+    .summary-cards, .year-summary-cards { grid-template-columns: 1fr; gap: 0.5rem; }
+    .card .amount { font-size: 1.1rem; }
+    .dividend-info-cards { grid-template-columns: 1fr; }
+    .mc-summary-grid { grid-template-columns: 1fr; }
+    .chart-container [id*="Chart"],
+    .chart-container [id*="chart"] { min-height: 220px; }
+}
+
+/* --- 小型スマホ (≤375px) --- */
+@media (max-width: 375px) {
+    .app-title { font-size: 0.75rem; max-width: 50vw; }
+    .card .amount { font-size: 1rem; }
+    .settings-input { font-size: 16px; }
+}
+
+/* --- 横向き --- */
+@media (max-width: 768px) and (orientation: landscape) {
+    .mobile-bottom-nav { height: 48px; }
+    .mobile-nav-label { display: none; }
+    .mobile-nav-icon { font-size: 1.1rem; }
+    .main-content { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ========== Plotlyグラフのカスタマイズ ========== */

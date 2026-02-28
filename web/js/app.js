@@ -176,6 +176,11 @@ function switchView(viewName) {
         targetTab.classList.add('active');
     }
 
+    // モバイルナビゲーション同期
+    if (typeof syncMobileNav === 'function') {
+        syncMobileNav(viewName);
+    }
+
     // ビュー固有の初期化処理（遅延読み込み）
     if (viewName === 'dashboard' && simulationData) {
         // ダッシュボードは既に描画済み
@@ -963,6 +968,36 @@ function getPlotlyTheme() {
         xaxis: { gridcolor: '#e5e7eb' },
         yaxis: { gridcolor: '#e5e7eb' }
     };
+}
+
+// モバイル対応マージン
+function getMobileAwareMargins(overrides) {
+    const mobile = window.innerWidth <= 768;
+    const defaults = mobile
+        ? { t: 20, r: 8, b: 60, l: 50 }
+        : { t: 30, r: 30, b: 50, l: 80 };
+    return Object.assign(defaults, overrides || {});
+}
+
+// モバイル対応凡例設定
+function getMobileAwareLegend(overrides) {
+    const mobile = window.innerWidth <= 768;
+    const defaults = mobile
+        ? { orientation: 'h', x: 0, y: -0.35, xanchor: 'left', yanchor: 'top', font: { size: 10 } }
+        : { orientation: 'v', x: 1.02, y: 1, xanchor: 'left', yanchor: 'top' };
+    return Object.assign(defaults, overrides || {});
+}
+
+// モバイル対応円グラフレイアウト
+function getMobileAwarePieLayout(titleText) {
+    const mobile = window.innerWidth <= 768;
+    return Object.assign(getPlotlyTheme(), {
+        title: titleText || '',
+        showlegend: true,
+        legend: getMobileAwareLegend(),
+        margin: mobile ? { t: 20, r: 8, b: 80, l: 8 } : { t: 40, r: 30, b: 40, l: 30 },
+        height: mobile ? 320 : 400,
+    });
 }
 
 // ========== イベントリスト描画 ==========
